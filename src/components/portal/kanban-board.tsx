@@ -12,6 +12,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import TaskCard from '@/components/portal/task-card';
+import TaskDetailDialog from '@/components/portal/task-detail-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -45,10 +46,12 @@ const columns = [
 type Task = {
   id: string;
   title: string;
+  description: string | null;
   priority: 'low' | 'medium' | 'high' | 'urgent';
   assigneeName?: string | null;
   status: string;
   position: number;
+  dueDate: string | null;
 };
 
 export default function KanbanBoard({
@@ -65,6 +68,8 @@ export default function KanbanBoard({
   const [priority, setPriority] = useState<'low' | 'medium' | 'high' | 'urgent'>('medium');
   const [dueDate, setDueDate] = useState('');
   const [saving, setSaving] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   const columnTasks = columns.reduce(
     (acc, col) => {
@@ -224,6 +229,10 @@ export default function KanbanBoard({
                         title={task.title}
                         priority={task.priority}
                         assigneeName={task.assigneeName}
+                        onClick={() => {
+                          setSelectedTask(task);
+                          setDetailOpen(true);
+                        }}
                       />
                     ))}
                   </div>
@@ -233,6 +242,21 @@ export default function KanbanBoard({
           })}
         </div>
       </DndContext>
+
+      <TaskDetailDialog
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        projectId={projectId}
+        task={selectedTask ? {
+          id: selectedTask.id,
+          title: selectedTask.title,
+          description: selectedTask.description,
+          status: selectedTask.status,
+          priority: selectedTask.priority,
+          assigneeName: selectedTask.assigneeName ?? null,
+          dueDate: selectedTask.dueDate,
+        } : null}
+      />
     </div>
   );
 }

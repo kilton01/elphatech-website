@@ -18,9 +18,11 @@ export default async function TasksPage({
     .select({
       id: tasks.id,
       title: tasks.title,
+      description: tasks.description,
       status: tasks.status,
       priority: tasks.priority,
       position: tasks.position,
+      dueDate: tasks.dueDate,
       assigneeName: usersTable.name,
     })
     .from(tasks)
@@ -28,9 +30,14 @@ export default async function TasksPage({
     .where(eq(tasks.projectId, projectId))
     .orderBy(tasks.status, tasks.position);
 
+  const serializedTasks = taskRows.map((t) => ({
+    ...t,
+    dueDate: t.dueDate?.toISOString() ?? null,
+  }));
+
   return (
     <div>
-      <KanbanBoard projectId={projectId} tasks={taskRows} />
+      <KanbanBoard projectId={projectId} tasks={serializedTasks} />
     </div>
   );
 }

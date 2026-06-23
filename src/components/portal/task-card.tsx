@@ -17,9 +17,10 @@ interface TaskCardProps {
   title: string;
   priority: keyof typeof priorityConfig;
   assigneeName?: string | null;
+  onClick?: () => void;
 }
 
-export default function TaskCard({ id, title, priority, assigneeName }: TaskCardProps) {
+export default function TaskCard({ id, title, priority, assigneeName, onClick }: TaskCardProps) {
   const {
     attributes,
     listeners,
@@ -46,6 +47,9 @@ export default function TaskCard({ id, title, priority, assigneeName }: TaskCard
       style={style}
       {...attributes}
       {...listeners}
+      onClick={(e) => {
+        if (!isDragging && onClick) onClick();
+      }}
       className={cn(
         'cursor-grab rounded-lg border bg-card p-3 text-sm shadow-sm transition-colors hover:border-foreground/20 active:cursor-grabbing',
         isDragging && 'opacity-50',
