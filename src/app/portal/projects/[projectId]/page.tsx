@@ -1,0 +1,90 @@
+import { auth } from '@/lib/auth';
+import { db } from '@/lib/db';
+import { projects, projectMembers, tasks } from '@/lib/db/schema';
+import { eq, sql } from 'drizzle-orm';
+import { notFound } from 'next/navigation';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Users, ListTodo, Calendar } from 'lucide-react';
+
+export default async function ProjectOverviewPage({
+  params,
+}: {
+  params: Promise<{ projectId: string }>;
+}) {
+  const { projectId } = await params;
+  const session = await auth();
+  if (!session?.user) notFound();
+
+  const project = await db
+    .select({
+      id: projects.id,
+      name: projects.name,
+      description: projects.description,
+      memberCount: sql<number>`(
+        SELECT COUNT(*) FROM ${projectMembers}
+        WHERE ${projectMembers.projectId} = ${projects.id}
+      )`,
+      taskCount: sql<number>`(
+        SELECT COUNT(*) FROM ${tasks}
+        WHERE ${tasks.projectId} = ${projects.id}
+      )`,
+      createdAt: projects.createdAt,
+    })
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .then((rows) => rows[0]);
+
+  if (!project) notFound();
+
+  return (
+    <div className="space-y-6">
+      {project.description && (
+        <p className="text-sm text-slate">{project.description}</p>
+      )}
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm text-slate">
+              <Users className="size-4" />
+              Members
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-semibold text-white">{project.memberCount}</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm text-slate">
+              <ListTodo className="size-4" />
+              Tasks
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-semibold text-white">{project.taskCount}</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm text-slate">
+              <Calendar className="size-4" />
+              Created
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-semibold text-white">
+              {project.createdAt.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+              })}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
