@@ -119,6 +119,7 @@ export default function KanbanBoard({
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<'low' | 'medium' | 'high' | 'urgent'>('medium');
   const [dueDate, setDueDate] = useState('');
+  const [phase, setPhase] = useState(1);
   const [saving, setSaving] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -249,6 +250,7 @@ export default function KanbanBoard({
           description: description.trim() || null,
           priority,
           dueDate: dueDate || null,
+          phase,
         }),
       });
       if (!res.ok) throw new Error('Failed to create task');
@@ -258,6 +260,7 @@ export default function KanbanBoard({
       setDescription('');
       setPriority('medium');
       setDueDate('');
+      setPhase(1);
       router.refresh();
     } catch {
       toast.error('Failed to create task');
@@ -381,6 +384,17 @@ export default function KanbanBoard({
                       onChange={(e) => setDueDate(e.target.value)}
                     />
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phase">Phase</Label>
+                  <Input
+                    id="phase"
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={phase}
+                    onChange={(e) => setPhase(parseInt(e.target.value) || 1)}
+                  />
                 </div>
               </div>
               <DialogFooter>
@@ -638,6 +652,7 @@ export default function KanbanBoard({
           description: selectedTask.description,
           status: selectedTask.status,
           priority: selectedTask.priority,
+          phase: selectedTask.phase,
           assigneeName: selectedTask.assigneeName ?? null,
           dueDate: selectedTask.dueDate,
           signedOffAt: selectedTask.signedOffAt,

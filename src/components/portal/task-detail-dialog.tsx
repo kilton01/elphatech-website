@@ -31,6 +31,7 @@ type TaskDetail = {
   description: string | null;
   status: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
+  phase: number;
   assigneeName: string | null;
   dueDate: string | null;
   signedOffAt: string | null;
@@ -157,6 +158,7 @@ export default function TaskDetailDialog({
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<'low' | 'medium' | 'high' | 'urgent'>('medium');
   const [status, setStatus] = useState('todo');
+  const [editPhase, setEditPhase] = useState(1);
   const [saving, setSaving] = useState(false);
 
   function startEdit() {
@@ -165,6 +167,7 @@ export default function TaskDetailDialog({
     setDescription(task.description ?? '');
     setPriority(task.priority);
     setStatus(task.status);
+    setEditPhase(task.phase);
     setEditing(true);
   }
 
@@ -182,6 +185,7 @@ export default function TaskDetailDialog({
             description: description.trim() || null,
             priority,
             status,
+            ...(userRole === 'admin' && { phase: editPhase }),
           }),
         },
       );
@@ -250,6 +254,22 @@ export default function TaskDetailDialog({
                 </Select>
               </div>
             </div>
+            {userRole === 'admin' && (
+              <div className="space-y-2">
+                <Label htmlFor="task-phase">Phase</Label>
+                <Input
+                  id="task-phase"
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={editPhase}
+                  onChange={(e) => setEditPhase(parseInt(e.target.value) || 1)}
+                />
+                <p className="text-xs text-tertiary">
+                  Tasks in lower phases must complete before higher phases unlock.
+                </p>
+              </div>
+            )}
             <div className="flex gap-2">
               <Button onClick={handleSave} disabled={saving}>
                 {saving ? 'Saving...' : 'Save'}
@@ -269,6 +289,7 @@ export default function TaskDetailDialog({
             <div className="flex flex-wrap gap-2">
               <Badge variant="outline">{task.status.replace('_', ' ')}</Badge>
               <Badge variant="outline">{task.priority}</Badge>
+              <Badge variant="outline">Phase {task.phase}</Badge>
               {task.assigneeName && (
                 <Badge variant="secondary">{task.assigneeName}</Badge>
               )}
