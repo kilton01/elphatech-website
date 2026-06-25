@@ -42,7 +42,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Plus, MoreHorizontal, BadgeCheck, Layers } from 'lucide-react';
+import { Plus, MoreHorizontal, BadgeCheck, Layers, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -71,6 +71,8 @@ type Task = {
   assigneeName?: string | null;
   status: string;
   position: number;
+  phase: number;
+  isReady: boolean;
   dueDate: string | null;
   signedOffAt: string | null;
   signedOffByName: string | null;
@@ -378,48 +380,81 @@ export default function KanbanBoard({
       </div>
 
       {groupByMilestone ? (
-        <div className="space-y-6">
+        <div className="space-y-8">
           {milestones.map((m) => {
             const milestoneTasks = serverTasks.filter((t) => t.milestoneId === m.id);
             if (milestoneTasks.length === 0) return null;
+
+            const phases = [...new Set(milestoneTasks.map(t => t.phase))].sort((a, b) => a - b);
+
             return (
-              <div key={m.id} className="space-y-2">
+              <div key={m.id} className="space-y-4">
                 <div className="flex items-center gap-2 px-1">
                   <h3 className="text-sm font-semibold text-white">{m.title}</h3>
                   <span className="text-xs text-slate">
                     {new Date(m.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} → {new Date(m.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                   </span>
                 </div>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
-                  {COLUMNS.map((col) => {
-                    const colTasks = milestoneTasks.filter((t) => t.status === col.id);
-                    return (
-                      <div key={col.id} className="rounded-lg bg-surface-1 p-2">
-                        <div className="mb-2 flex items-center gap-1.5">
-                          <div className={`h-3 w-0.5 rounded-full ${col.accent}`} />
-                          <span className="text-xs font-medium text-slate">{col.label} ({colTasks.length})</span>
-                        </div>
-                        <div className="space-y-1.5">
-                          {colTasks.map((task) => (
-                            <button
-                              key={task.id}
-                              onClick={() => { setSelectedTask(task); setDetailOpen(true); }}
-                              className="w-full rounded-md border border-subtle bg-surface-2 p-2 text-left text-xs hover:border-strong"
-                            >
-                              <p className="font-medium text-white truncate">{task.title}</p>
-                              <Badge variant="outline" className={cn('mt-1 text-[9px]', priorityConfig[task.priority].className)}>
-                                {priorityConfig[task.priority].label}
-                              </Badge>
-                            </button>
-                          ))}
-                        </div>
+
+                {phases.map((phase) => {
+                  const phaseTasks = milestoneTasks.filter(t => t.phase === phase);
+                  const isPhaseReady = phaseTasks.some(t => t.isReady);
+                  const isPhaseComplete = phaseTasks.every(t => t.status === 'done');
+
+                  return (
+                    <div key={phase} className={cn('rounded-lg border p-3', isPhaseReady ? 'border-subtle bg-surface-1' : 'border-subtle/50 bg-surface-0/50')}>
+                      <div className="mb-2 flex items-center gap-2">
+                        {isPhaseComplete ? (
+                          <BadgeCheck className="size-4 text-success" />
+                        ) : isPhaseReady ? (
+                          <div className="size-4 rounded-full border-2 border-brand-primary" />
+                        ) : (
+                          <Lock className="size-4 text-tertiary" />
+                        )}
+                        <span className="text-xs font-medium text-slate">
+                          Phase {phase}
+                        </span>
+                        <span className="text-xs text-tertiary">
+                          ({phaseTasks.filter(t => t.status === 'done').length}/{phaseTasks.length} done)
+                        </span>
                       </div>
-                    );
-                  })}
-                </div>
+
+                      <div className={cn('grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-4', !isPhaseReady && 'opacity-50')}>
+                        {COLUMNS.map((col) => {
+                          const colTasks = phaseTasks.filter((t) => t.status === col.id);
+                          if (colTasks.length === 0) return null;
+                          return (
+                            <div key={col.id} className="space-y-1">
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <div className={`h-2 w-0.5 rounded-full ${col.accent}`} />
+                                <span className="text-[10px] font-medium text-tertiary">{col.label}</span>
+                              </div>
+                              {colTasks.map((task) => (
+                                <button
+                                  key={task.id}
+                                  onClick={() => { setSelectedTask(task); setDetailOpen(true); }}
+                                  className="w-full rounded-md border border-subtle bg-surface-2 p-2 text-left text-xs hover:border-strong"
+                                >
+                                  <p className="font-medium text-white truncate">{task.title}</p>
+                                  <div className="mt-1 flex items-center gap-1.5">
+                                    <Badge variant="outline" className={cn('text-[9px]', priorityConfig[task.priority].className)}>
+                                      {priorityConfig[task.priority].label}
+                                    </Badge>
+                                    {!task.isReady && <Lock className="size-3 text-tertiary" />}
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             );
           })}
+
           {/* Unassigned tasks */}
           {(() => {
             const unassigned = serverTasks.filter((t) => !t.milestoneId);
