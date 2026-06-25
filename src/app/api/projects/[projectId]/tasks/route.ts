@@ -50,9 +50,11 @@ export async function GET(
       status: tasks.status,
       priority: tasks.priority,
       position: tasks.position,
+      phase: tasks.phase,
       dueDate: tasks.dueDate,
       assigneeId: tasks.assigneeId,
       reporterId: tasks.reporterId,
+      milestoneId: tasks.milestoneId,
       createdAt: tasks.createdAt,
     })
     .from(tasks)
@@ -77,7 +79,7 @@ export async function POST(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const { title, description, priority, dueDate, assigneeId, status } = await request.json();
+  const { title, description, priority, dueDate, assigneeId, status, phase } = await request.json();
 
   if (!title || typeof title !== 'string' || !title.trim()) {
     return NextResponse.json({ error: 'Title is required' }, { status: 400 });
@@ -104,6 +106,7 @@ export async function POST(
       status: taskStatus,
       dueDate: dueDate ? new Date(dueDate) : null,
       position: maxPos + 1,
+      phase: typeof phase === 'number' && phase >= 1 ? phase : 1,
     })
     .returning();
 

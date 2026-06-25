@@ -113,6 +113,10 @@ export async function PATCH(
     updateData.assigneeId = body.assigneeId || null;
   }
 
+  if (typeof body.phase === 'number' && body.phase >= 1) {
+    updateData.phase = body.phase;
+  }
+
   if (Object.keys(updateData).length === 0) {
     return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
   }
