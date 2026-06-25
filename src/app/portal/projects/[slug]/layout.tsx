@@ -12,16 +12,16 @@ export default async function ProjectLayout({
   params,
 }: {
   children: React.ReactNode;
-  params: Promise<{ projectId: string }>;
+  params: Promise<{ slug: string }>;
 }) {
-  const { projectId } = await params;
+  const { slug } = await params;
   const session = await auth();
   if (!session?.user) notFound();
 
   const project = await db
     .select({ id: projects.id, name: projects.name, slug: projects.slug })
     .from(projects)
-    .where(eq(projects.id, projectId))
+    .where(eq(projects.slug, slug))
     .then((rows) => rows[0]);
 
   if (!project) notFound();
@@ -33,7 +33,7 @@ export default async function ProjectLayout({
       .from(projectMembers)
       .where(
         and(
-          eq(projectMembers.projectId, projectId),
+          eq(projectMembers.projectId, project.id),
           eq(projectMembers.userId, session.user.id),
         ),
       )
@@ -54,7 +54,7 @@ export default async function ProjectLayout({
           <h1 className="text-xl font-semibold text-white">{project.name}</h1>
         </div>
       </div>
-      <ProjectTabs projectId={projectId}>{children}</ProjectTabs>
+      <ProjectTabs projectId={project.id}>{children}</ProjectTabs>
     </div>
   );
 }

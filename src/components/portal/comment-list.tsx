@@ -63,16 +63,18 @@ export default function CommentList({
 
   return (
     <div className="space-y-4">
-      <form onSubmit={handlePost} className="flex gap-2">
+      <form onSubmit={handlePost} className="space-y-2">
         <Textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
           placeholder="Add a comment..."
-          className="min-h-[60px] flex-1 resize-none"
+          className="min-h-[60px] resize-none"
         />
-        <Button type="submit" size="sm" disabled={posting || !content.trim()}>
-          {posting ? '...' : 'Post'}
-        </Button>
+        <div className="flex justify-end">
+          <Button type="submit" size="sm" disabled={posting || !content.trim()}>
+            {posting ? 'Posting...' : 'Post'}
+          </Button>
+        </div>
       </form>
 
       {comments.length === 0 ? (
@@ -86,7 +88,7 @@ export default function CommentList({
                   {comment.authorName ?? comment.authorEmail ?? 'Unknown'}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {new Date(comment.createdAt).toLocaleDateString('en-US', {
+                  {new Date(comment.createdAt).toLocaleString('en-US', {
                     month: 'short',
                     day: 'numeric',
                     hour: 'numeric',

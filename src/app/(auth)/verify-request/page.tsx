@@ -1,26 +1,32 @@
 import { Mail } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import Link from 'next/link';
 
 export default function VerifyRequestPage() {
   return (
-    <Card className="w-full max-w-sm text-center">
-      <CardHeader>
-        <div className="mx-auto mb-2 flex size-12 items-center justify-center rounded-full bg-navy2">
-          <Mail className="size-6 text-red" />
-        </div>
-        <CardTitle className="text-2xl font-bold text-white">
+    <div className="w-full max-w-sm space-y-6 text-center">
+      <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-brand-muted">
+        <Mail className="size-6 text-red" />
+      </div>
+      <div>
+        <h1 className="text-2xl font-bold text-white font-[var(--font-sora)]">
           Check your email
-        </CardTitle>
-        <CardDescription className="text-slate">
+        </h1>
+        <p className="mt-2 text-sm text-secondary-brand">
           A sign-in link has been sent to your email address.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="text-sm text-slate">
-        <p>
-          Click the link in the email to sign in. If you don&apos;t see it, check your spam folder.
-          The link expires in 24 hours.
         </p>
-      </CardContent>
-    </Card>
+      </div>
+      <div className="rounded-lg border border-brand bg-surface-2 p-4 text-left">
+        <p className="text-xs text-tertiary leading-relaxed">
+          Click the link in the email to sign in. The link expires in 15 minutes.
+          If you don&apos;t see it, check your spam folder.
+        </p>
+      </div>
+      <Link
+        href="/login"
+        className="inline-flex items-center gap-1.5 text-sm text-slate transition-colors hover:text-white"
+      >
+        &larr; Back to sign in
+      </Link>
+    </div>
   );
 }

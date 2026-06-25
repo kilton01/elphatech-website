@@ -62,8 +62,9 @@ export default function FileList({
             </div>
             <Button
               variant="ghost"
-              size="sm"
+              size="icon-sm"
               onClick={() => handleDownload(file.id, file.name)}
+              className="text-muted-foreground hover:text-foreground"
             >
               <Download className="size-4" />
             </Button>

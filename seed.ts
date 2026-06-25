@@ -4,6 +4,11 @@ import postgres from 'postgres';
 import * as schema from './src/lib/db/schema';
 import { sql } from 'drizzle-orm';
 
+if (process.env.NODE_ENV === 'production') {
+  console.error('ERROR: seed.ts cannot run in production. Aborting.');
+  process.exit(1);
+}
+
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
   console.error('DATABASE_URL is required');
@@ -16,10 +21,9 @@ const db = drizzle(client, { schema });
 async function seed() {
   console.log('Seeding database...');
 
-  // Drop and recreate enums (dev only)
-  await db.execute(sql`DROP TYPE IF EXISTS role CASCADE`);
-  await db.execute(sql`DROP TYPE IF EXISTS task_status CASCADE`);
-  await db.execute(sql`DROP TYPE IF EXISTS task_priority CASCADE`);
+  await db.execute(sql`DO $$ BEGIN CREATE TYPE role AS ENUM ('admin', 'client'); EXCEPTION WHEN duplicate_object THEN NULL; END $$`);
+  await db.execute(sql`DO $$ BEGIN CREATE TYPE task_status AS ENUM ('todo', 'in_progress', 'review', 'done'); EXCEPTION WHEN duplicate_object THEN NULL; END $$`);
+  await db.execute(sql`DO $$ BEGIN CREATE TYPE task_priority AS ENUM ('low', 'medium', 'high', 'urgent'); EXCEPTION WHEN duplicate_object THEN NULL; END $$`);
   await db.execute(sql`CREATE TYPE role AS ENUM ('admin', 'client')`);
   await db.execute(sql`CREATE TYPE task_status AS ENUM ('todo', 'in_progress', 'review', 'done')`);
   await db.execute(sql`CREATE TYPE task_priority AS ENUM ('low', 'medium', 'high', 'urgent')`);
@@ -149,10 +153,12 @@ async function seed() {
   `);
 
   console.log('Seed complete.');
+  await client.end();
   process.exit(0);
 }
 
-seed().catch((err) => {
+seed().catch(async (err) => {
   console.error('Seed failed:', err);
+  await client.end();
   process.exit(1);
 });

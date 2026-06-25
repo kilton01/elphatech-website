@@ -3,7 +3,8 @@ import { DrizzleAdapter } from '@auth/drizzle-adapter';
 import Email from 'next-auth/providers/email';
 import { db } from './db';
 import * as schema from './db/schema';
-import { transporter } from './email';
+import { sendMagicLinkEmail } from './bird';
+import { eq } from 'drizzle-orm';
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: DrizzleAdapter(db, {
@@ -20,40 +21,35 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   providers: [
     Email({
-      server: {
-        host: process.env.SMTP2GO_HOST!,
-        port: Number(process.env.SMTP2GO_PORT) || 2525,
-        auth: {
-          user: process.env.SMTP2GO_USER!,
-          pass: process.env.SMTP2GO_PASS!,
-        },
-      },
+      server: { host: 'unused', port: 0, auth: { user: '', pass: '' } },
       from: process.env.EMAIL_FROM || 'ElphaTech <noreply@elphatechsolutions.com>',
       maxAge: 24 * 60 * 60,
       sendVerificationRequest: async ({ identifier: email, url }) => {
-        await transporter.sendMail({
-          from: process.env.EMAIL_FROM || 'ElphaTech <noreply@elphatechsolutions.com>',
-          to: email,
-          subject: 'Sign in to ElphaTech Portal',
-          html: `
-            <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
-              <h2 style="color: #0A1628;">Sign in to ElphaTech</h2>
-              <p style="color: #555;">Click the button below to sign in to your portal. This link expires in 24 hours.</p>
-              <a href="${url}" style="display: inline-block; background: #E8302A; color: white; padding: 12px 24px; border-radius: 4px; text-decoration: none; font-weight: 600; margin: 16px 0;">
-                Sign In
-              </a>
-              <p style="color: #999; font-size: 12px;">If you did not request this email, you can safely ignore it.</p>
-            </div>
-          `,
-        });
+        await sendMagicLinkEmail(email, url);
       },
     }),
   ],
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id;
+        token.id = user.id!;
         token.role = user.role;
+        token.roleRefreshedAt = Date.now();
+      }
+      const ROLE_REFRESH_INTERVAL = 5 * 60 * 1000;
+      if (
+        token.id &&
+        (!token.roleRefreshedAt ||
+          Date.now() - (token.roleRefreshedAt as number) > ROLE_REFRESH_INTERVAL)
+      ) {
+        const [dbUser] = await db
+          .select({ role: schema.users.role })
+          .from(schema.users)
+          .where(eq(schema.users.id, token.id as string));
+        if (dbUser) {
+          token.role = dbUser.role;
+          token.roleRefreshedAt = Date.now();
+        }
       }
       return token;
     },

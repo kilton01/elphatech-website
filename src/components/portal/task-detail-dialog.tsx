@@ -22,6 +22,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
+import { BadgeCheck, RotateCcw } from 'lucide-react';
 import CommentList from './comment-list';
 
 type TaskDetail = {
@@ -32,17 +33,122 @@ type TaskDetail = {
   priority: 'low' | 'medium' | 'high' | 'urgent';
   assigneeName: string | null;
   dueDate: string | null;
+  signedOffAt: string | null;
+  signedOffByName: string | null;
 };
+
+function SignOffActions({
+  projectId,
+  taskId,
+  taskStatus,
+  signedOffAt,
+  userRole,
+}: {
+  projectId: string;
+  taskId: string;
+  taskStatus: string;
+  signedOffAt: string | null;
+  userRole: string;
+}) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+
+  const canSignOff = userRole === 'client' && taskStatus === 'review' && !signedOffAt;
+  const canRevoke = userRole === 'admin' && !!signedOffAt;
+
+  async function handleSignOff() {
+    const confirmed = window.confirm(
+      'Are you sure you want to sign off on this task? This confirms the work is complete and accepted.',
+    );
+    if (!confirmed) return;
+
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `/api/projects/${projectId}/tasks/${taskId}/signoff`,
+        { method: 'POST' },
+      );
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to sign off');
+      }
+      toast.success('Task signed off successfully');
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to sign off');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleRevoke() {
+    const confirmed = window.confirm(
+      "Revoke this sign-off? The task will return to 'review' status.",
+    );
+    if (!confirmed) return;
+
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `/api/projects/${projectId}/tasks/${taskId}/signoff`,
+        { method: 'DELETE' },
+      );
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to revoke sign-off');
+      }
+      toast.success('Sign-off revoked');
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to revoke');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (canSignOff) {
+    return (
+      <Button
+        size="sm"
+        onClick={handleSignOff}
+        disabled={loading}
+        className="gap-1 bg-success/10 text-success border border-success/20 hover:bg-success/20"
+      >
+        <BadgeCheck className="size-3.5" />
+        {loading ? 'Signing off…' : 'Sign Off'}
+      </Button>
+    );
+  }
+
+  if (canRevoke) {
+    return (
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={handleRevoke}
+        disabled={loading}
+        className="gap-1 text-warning hover:text-warning hover:bg-warning/10"
+      >
+        <RotateCcw className="size-3.5" />
+        {loading ? 'Revoking…' : 'Revoke Sign-off'}
+      </Button>
+    );
+  }
+
+  return null;
+}
 
 export default function TaskDetailDialog({
   open,
   onOpenChange,
   projectId,
+  userRole,
   task,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   projectId: string;
+  userRole: string;
   task: TaskDetail | null;
 }) {
   const router = useRouter();
@@ -94,7 +200,7 @@ export default function TaskDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="pr-8">
             {editing ? 'Edit Task' : task.title}
@@ -171,10 +277,25 @@ export default function TaskDetailDialog({
                   Due {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                 </Badge>
               )}
+              {task.signedOffAt && (
+                <Badge variant="secondary" className="gap-1 text-success border-success/20">
+                  <BadgeCheck className="size-3" />
+                  Signed off by {task.signedOffByName}
+                </Badge>
+              )}
             </div>
-            <Button variant="outline" size="sm" onClick={startEdit}>
-              Edit
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={startEdit}>
+                Edit
+              </Button>
+              <SignOffActions
+                projectId={projectId}
+                taskId={task.id}
+                taskStatus={task.status}
+                signedOffAt={task.signedOffAt}
+                userRole={userRole}
+              />
+            </div>
           </div>
         )}
 

@@ -121,8 +121,9 @@ export default function MembersList({
                 {isAdmin && member.role !== 'admin' && (
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="icon-sm"
                     onClick={() => handleRemove(member.id)}
+                    className="text-muted-foreground hover:text-destructive-foreground"
                   >
                     <X className="size-4" />
                   </Button>

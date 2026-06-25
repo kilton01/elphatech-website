@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, FolderKanban, Settings } from 'lucide-react';
+import { useSession } from 'next-auth/react';
+import { LayoutDashboard, FolderKanban, Settings, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -11,20 +12,28 @@ const navItems = [
   { href: '/portal/settings', label: 'Settings', icon: Settings },
 ];
 
+const adminItems = [
+  { href: '/portal/admin/users', label: 'Users', icon: Users },
+];
+
 export default function PortalNav() {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === 'admin';
+
+  const allItems = isAdmin ? [...navItems, ...adminItems] : navItems;
 
   return (
-    <aside className="fixed left-0 top-0 flex h-screen w-60 flex-col bg-navy2">
-      <div className="flex h-14 items-center gap-2 border-b border-brand px-5">
+    <aside className="fixed left-0 top-0 hidden h-screen w-60 flex-col border-r border-brand bg-navy2 md:flex">
+      <div className="flex h-14 items-center gap-2.5 border-b border-brand px-5">
         <div className="flex size-8 items-center justify-center rounded-lg bg-red text-sm font-bold text-white">
           ET
         </div>
-        <span className="text-sm font-semibold text-white">ElphaTech</span>
+        <span className="text-sm font-semibold tracking-tight text-white">ElphaTech</span>
       </div>
 
-      <nav className="flex-1 space-y-1 p-3">
-        {navItems.map((item) => {
+      <nav className="flex-1 space-y-0.5 p-3">
+        {allItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href ||
             (item.href !== '/portal' && pathname.startsWith(item.href));

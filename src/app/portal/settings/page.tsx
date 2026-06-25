@@ -1,12 +1,14 @@
+import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import EditableName from '@/components/portal/editable-name';
 
 export default async function SettingsPage() {
   const session = await auth();
-  if (!session?.user) throw new Error('Not authenticated');
+  if (!session?.user) redirect('/login');
 
   const user = await db
     .select()
@@ -29,7 +31,9 @@ export default async function SettingsPage() {
         <CardContent className="space-y-4">
           <div>
             <p className="text-xs font-medium text-slate uppercase tracking-wider">Name</p>
-            <p className="mt-0.5 text-white">{user?.name ?? '—'}</p>
+            <div className="mt-0.5">
+              <EditableName initialName={user?.name ?? ''} />
+            </div>
           </div>
           <div>
             <p className="text-xs font-medium text-slate uppercase tracking-wider">Email</p>

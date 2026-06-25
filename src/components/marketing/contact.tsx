@@ -70,7 +70,7 @@ export default function Contact() {
               </div>
               <div>
                 <strong className="block font-[var(--font-sora)] text-sm text-white mb-0.5">Email Us</strong>
-                <span className="text-slate text-sm">hello@elphatechsolutions.com</span>
+                <span className="text-slate text-sm">info@elphatechsolutions.com</span>
               </div>
             </div>
 
@@ -80,7 +80,7 @@ export default function Contact() {
               </div>
               <div>
                 <strong className="block font-[var(--font-sora)] text-sm text-white mb-0.5">WhatsApp / Call</strong>
-                <span className="text-slate text-sm">+233 557 384 213</span>
+                <span className="text-slate text-sm">+233 557 384 213 /+233 558 352 396</span>
               </div>
             </div>
 

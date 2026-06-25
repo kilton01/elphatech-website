@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { comments, projectMembers, tasks, users } from '@/lib/db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { comments, projectMembers, projects, tasks, users } from '@/lib/db/schema';
+import { eq, and, desc, inArray } from 'drizzle-orm';
+import { createBulkNotifications } from '@/lib/notifications';
+import { sendCommentNotificationEmail } from '@/lib/bird';
 
 async function checkMembership(projectId: string, userId: string) {
   const session = await auth();
@@ -94,5 +96,74 @@ export async function POST(
     })
     .returning();
 
-  return NextResponse.json(comment, { status: 201 });
+  const author = await db
+    .select({ name: users.name, email: users.email })
+    .from(users)
+    .where(eq(users.id, session.user.id))
+    .then((rows) => rows[0]);
+
+  try {
+    const members = await db
+      .select({ userId: projectMembers.userId })
+      .from(projectMembers)
+      .where(eq(projectMembers.projectId, projectId));
+    const recipientIds = members
+      .map((m) => m.userId)
+      .filter((id) => id !== session.user.id);
+
+    const taskRecord = await db
+      .select({ title: tasks.title })
+      .from(tasks)
+      .where(eq(tasks.id, taskId))
+      .then((rows) => rows[0]);
+
+    const commenterName = author?.name || author?.email || 'Someone';
+    const taskTitle = taskRecord?.title || 'a task';
+
+    await createBulkNotifications(recipientIds, {
+      projectId,
+      type: 'comment_added',
+      title: 'New comment',
+      body: `${commenterName} commented on ${taskTitle}`,
+    });
+
+    if (recipientIds.length > 0) {
+      const project = await db
+        .select({ name: projects.name })
+        .from(projects)
+        .where(eq(projects.id, projectId))
+        .then((rows) => rows[0]);
+
+      const recipientEmails = await db
+        .select({ email: users.email })
+        .from(users)
+        .where(inArray(users.id, recipientIds));
+
+      const preview = content.trim().slice(0, 120);
+      await Promise.allSettled(
+        recipientEmails.map((r) =>
+          sendCommentNotificationEmail(
+            r.email,
+            commenterName,
+            taskTitle,
+            preview,
+            project?.name || 'a project',
+          ),
+        ),
+      );
+    }
+  } catch (err) {
+    console.error('Notification/email error:', err);
+  }
+
+  return NextResponse.json(
+    {
+      id: comment.id,
+      content: comment.content,
+      createdAt: comment.createdAt,
+      authorName: author?.name ?? null,
+      authorEmail: author?.email ?? null,
+    },
+    { status: 201 },
+  );
 }

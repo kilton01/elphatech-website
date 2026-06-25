@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { files, projectMembers, users } from '@/lib/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
+import { createBulkNotifications } from '@/lib/notifications';
 
 async function checkMembership(projectId: string, userId: string) {
   const session = await auth();
@@ -83,6 +84,10 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid file size' }, { status: 400 });
   }
 
+  if (!key.startsWith(`${projectId}/`)) {
+    return NextResponse.json({ error: 'Invalid file key' }, { status: 400 });
+  }
+
   const [file] = await db
     .insert(files)
     .values({
@@ -94,6 +99,31 @@ export async function POST(
       mimeType,
     })
     .returning();
+
+  try {
+    const members = await db
+      .select({ userId: projectMembers.userId })
+      .from(projectMembers)
+      .where(eq(projectMembers.projectId, projectId));
+    const recipientIds = members
+      .map((m) => m.userId)
+      .filter((id) => id !== session.user.id);
+
+    const uploader = await db
+      .select({ name: users.name, email: users.email })
+      .from(users)
+      .where(eq(users.id, session.user.id))
+      .then((rows) => rows[0]);
+
+    await createBulkNotifications(recipientIds, {
+      projectId,
+      type: 'file_uploaded',
+      title: 'New file uploaded',
+      body: `${uploader?.name || uploader?.email || 'Someone'} uploaded ${name}`,
+    });
+  } catch (err) {
+    console.error('Notification error:', err);
+  }
 
   return NextResponse.json(file, { status: 201 });
 }

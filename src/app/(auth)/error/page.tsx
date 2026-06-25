@@ -1,31 +1,31 @@
 import { AlertTriangle } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 
 export default function AuthErrorPage() {
   return (
-    <Card className="w-full max-w-sm text-center">
-      <CardHeader>
-        <div className="mx-auto mb-2 flex size-12 items-center justify-center rounded-full bg-navy2">
-          <AlertTriangle className="size-6 text-red" />
-        </div>
-        <CardTitle className="text-2xl font-bold text-white">
+    <div className="w-full max-w-sm space-y-6 text-center">
+      <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-danger">
+        <AlertTriangle className="size-6 text-danger" />
+      </div>
+      <div>
+        <h1 className="text-2xl font-bold text-white font-[var(--font-sora)]">
           Authentication Error
-        </CardTitle>
-        <CardDescription className="text-slate">
+        </h1>
+        <p className="mt-2 text-sm text-secondary-brand">
           Something went wrong while signing in.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="text-sm text-slate space-y-3">
-        <p>
+        </p>
+      </div>
+      <div className="rounded-lg border border-brand bg-surface-2 p-4 text-left">
+        <p className="text-xs text-tertiary leading-relaxed">
           The sign-in link may have expired or is invalid. Please request a new one.
         </p>
-        <a
-          href="/login"
-          className="inline-block rounded-lg bg-red px-4 py-2 text-sm font-medium text-white hover:bg-red2"
-        >
-          Try Again
-        </a>
-      </CardContent>
-    </Card>
+      </div>
+      <Link href="/login">
+        <Button className="bg-red text-white hover:bg-red2 transition-all active:scale-[0.98]">
+          Try again
+        </Button>
+      </Link>
+    </div>
   );
 }

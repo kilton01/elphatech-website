@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { toast } from 'sonner';
 
 export default function NewProjectPage() {
   const router = useRouter();
@@ -24,8 +25,9 @@ export default function NewProjectPage() {
       });
       if (!res.ok) throw new Error('Failed to create project');
       const project = await res.json();
-      router.push(`/portal/projects/${project.id}`);
+      router.push(`/portal/projects/${project.slug}`);
     } catch {
+      toast.error('Failed to create project');
       setSaving(false);
     }
   }

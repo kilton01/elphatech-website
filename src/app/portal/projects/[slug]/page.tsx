@@ -9,9 +9,9 @@ import { Users, ListTodo, Calendar } from 'lucide-react';
 export default async function ProjectOverviewPage({
   params,
 }: {
-  params: Promise<{ projectId: string }>;
+  params: Promise<{ slug: string }>;
 }) {
-  const { projectId } = await params;
+  const { slug } = await params;
   const session = await auth();
   if (!session?.user) notFound();
 
@@ -31,7 +31,7 @@ export default async function ProjectOverviewPage({
       createdAt: projects.createdAt,
     })
     .from(projects)
-    .where(eq(projects.id, projectId))
+    .where(eq(projects.slug, slug))
     .then((rows) => rows[0]);
 
   if (!project) notFound();

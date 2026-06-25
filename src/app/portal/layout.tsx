@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import PortalNav from '@/components/portal/portal-nav';
 import PortalHeader from '@/components/portal/portal-header';
 import SessionProvider from '@/components/portal/session-provider';
+import { Toaster } from 'sonner';
 
 export default async function PortalLayout({
   children,
@@ -14,12 +15,13 @@ export default async function PortalLayout({
 
   return (
     <SessionProvider session={session}>
-      <div className="flex min-h-screen bg-navy">
+      <div className="dark flex min-h-screen bg-navy">
         <PortalNav />
-        <div className="ml-60 flex flex-1 flex-col">
+        <div className="flex flex-1 flex-col ml-0 md:ml-60">
           <PortalHeader />
-          <main className="flex-1 p-6">{children}</main>
+          <main className="flex-1 p-4 md:p-6">{children}</main>
         </div>
+        <Toaster theme="dark" position="bottom-right" richColors />
       </div>
     </SessionProvider>
   );

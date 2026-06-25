@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { projectMembers } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getPresignedUploadUrl } from '@/lib/r2';
+import { apiLimiter } from '@/lib/rate-limit';
 
 const ALLOWED_MIME_TYPES = [
   'application/pdf',
@@ -14,12 +15,19 @@ const ALLOWED_MIME_TYPES = [
   'image/png',
   'image/jpeg',
   'image/gif',
-  'image/svg+xml',
   'application/zip',
   'text/plain',
 ];
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
+const MAX_FILENAME_LENGTH = 255;
+
+function sanitizeFilename(name: string): string {
+  return name
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .replace(/\.{2,}/g, '.')
+    .slice(0, MAX_FILENAME_LENGTH);
+}
 
 async function checkMembership(projectId: string, userId: string) {
   const session = await auth();
@@ -45,6 +53,11 @@ export async function POST(
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { success } = await apiLimiter.limit(session.user.id);
+  if (!success) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   }
 
   const { projectId } = await context.params;
@@ -73,7 +86,8 @@ export async function POST(
     );
   }
 
-  const key = `${projectId}/${crypto.randomUUID()}-${name}`;
+  const safeName = sanitizeFilename(name);
+  const key = `${projectId}/${crypto.randomUUID()}-${safeName}`;
   const url = await getPresignedUploadUrl(key, type);
 
   return NextResponse.json({ url, key });

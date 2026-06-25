@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { tasks, projectMembers } from '@/lib/db/schema';
+import { tasks, projectMembers, projects, users } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { createNotification, createBulkNotifications } from '@/lib/notifications';
+import { sendTaskAssignedEmail } from '@/lib/bird';
 
 async function checkMembership(projectId: string, userId: string) {
   const session = await auth();
@@ -37,7 +39,7 @@ export async function PATCH(
   }
 
   const existing = await db
-    .select({ id: tasks.id })
+    .select({ id: tasks.id, title: tasks.title, status: tasks.status, assigneeId: tasks.assigneeId, signedOffAt: tasks.signedOffAt })
     .from(tasks)
     .where(and(eq(tasks.id, taskId), eq(tasks.projectId, projectId)))
     .then((rows) => rows[0]);
@@ -47,6 +49,30 @@ export async function PATCH(
   }
 
   const body = await request.json();
+
+  if (body.status !== undefined) {
+    const memberRecord = await db
+      .select({ role: projectMembers.role })
+      .from(projectMembers)
+      .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, session.user.id)))
+      .then((rows) => rows[0]);
+    const isAdmin = session.user.role === 'admin';
+
+    if (!isAdmin && memberRecord?.role === 'client' && body.status === 'done') {
+      return NextResponse.json(
+        { error: 'Clients must use the sign-off flow to mark tasks as done.' },
+        { status: 403 },
+      );
+    }
+
+    if (existing.signedOffAt && !isAdmin) {
+      return NextResponse.json(
+        { error: 'This task has been signed off and is locked.' },
+        { status: 403 },
+      );
+    }
+  }
+
   const updateData: Record<string, unknown> = {};
 
   if (body.status !== undefined) {
@@ -83,6 +109,10 @@ export async function PATCH(
     updateData.priority = body.priority;
   }
 
+  if (body.assigneeId !== undefined) {
+    updateData.assigneeId = body.assigneeId || null;
+  }
+
   if (Object.keys(updateData).length === 0) {
     return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
   }
@@ -92,6 +122,45 @@ export async function PATCH(
     .set(updateData)
     .where(eq(tasks.id, taskId))
     .returning();
+
+  try {
+    if (body.assigneeId && body.assigneeId !== existing.assigneeId && body.assigneeId !== session.user.id) {
+      await createNotification({
+        userId: body.assigneeId,
+        projectId,
+        type: 'task_assigned',
+        title: 'New task assigned',
+        body: `You've been assigned: ${existing.title}`,
+      });
+
+      const [assignee, project] = await Promise.all([
+        db.select({ email: users.email }).from(users).where(eq(users.id, body.assigneeId)).then((r) => r[0]),
+        db.select({ name: projects.name }).from(projects).where(eq(projects.id, projectId)).then((r) => r[0]),
+      ]);
+      if (assignee?.email) {
+        const assignerName = session.user.name || session.user.email || 'Someone';
+        sendTaskAssignedEmail(assignee.email, existing.title, project?.name || 'a project', assignerName).catch(() => {});
+      }
+    }
+
+    if (body.status && body.status !== existing.status) {
+      const members = await db
+        .select({ userId: projectMembers.userId })
+        .from(projectMembers)
+        .where(eq(projectMembers.projectId, projectId));
+      const recipientIds = members
+        .map((m) => m.userId)
+        .filter((id) => id !== session.user.id);
+      await createBulkNotifications(recipientIds, {
+        projectId,
+        type: 'status_changed',
+        title: 'Task status updated',
+        body: `${existing.title} moved to ${body.status.replace('_', ' ')}`,
+      });
+    }
+  } catch (err) {
+    console.error('Notification error:', err);
+  }
 
   return NextResponse.json(task);
 }

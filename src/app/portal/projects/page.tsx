@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { projects, projectMembers, tasks } from '@/lib/db/schema';
@@ -8,7 +9,7 @@ import { Button } from '@/components/ui/button';
 
 export default async function ProjectsPage() {
   const session = await auth();
-  if (!session?.user) throw new Error('Not authenticated');
+  if (!session?.user) redirect('/login');
 
   const isAdmin = session.user.role === 'admin';
 
@@ -66,7 +67,7 @@ export default async function ProjectsPage() {
           {projectsList.map((project) => (
             <Link
               key={project.id}
-              href={`/portal/projects/${project.id}`}
+              href={`/portal/projects/${project.slug}`}
               className="group rounded-xl border border-brand bg-navy2 p-5 transition-colors hover:border-slate/30"
             >
               <h3 className="font-medium text-white group-hover:text-red">

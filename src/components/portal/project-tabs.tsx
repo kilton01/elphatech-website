@@ -1,14 +1,15 @@
 'use client';
 
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
-import { useCallback } from 'react';
 
 const tabs = [
   { href: '', label: 'Overview' },
   { href: '/tasks', label: 'Tasks' },
+  { href: '/milestones', label: 'Milestones' },
   { href: '/files', label: 'Files' },
+  { href: '/invoices', label: 'Invoices' },
   { href: '/members', label: 'Members' },
   { href: '/activity', label: 'Activity' },
 ];

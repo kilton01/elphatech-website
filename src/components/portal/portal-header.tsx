@@ -4,6 +4,8 @@ import { useSession, signOut } from 'next-auth/react';
 import { LogOut } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import MobileNav from './mobile-nav';
+import NotificationBell from './notification-bell';
 
 export default function PortalHeader() {
   const { data: session } = useSession();
@@ -13,9 +15,20 @@ export default function PortalHeader() {
     : user?.email?.charAt(0).toUpperCase() ?? '?';
 
   return (
-    <header className="flex h-14 items-center justify-end gap-3 border-b border-brand bg-navy px-6">
+    <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 border-b border-brand bg-navy/80 px-4 backdrop-blur-md md:justify-end md:px-6">
+      {/* Mobile: hamburger + logo */}
+      <div className="flex items-center gap-3 md:hidden">
+        <MobileNav />
+        <div className="flex size-7 items-center justify-center rounded-md bg-red text-xs font-bold text-white">
+          ET
+        </div>
+      </div>
+
+      {/* User section */}
       <div className="flex items-center gap-3">
-        <div className="text-right text-xs">
+        <NotificationBell />
+        <div className="h-5 w-px bg-white/10" />
+        <div className="hidden text-right text-xs sm:block">
           <p className="font-medium text-white">{user?.name ?? 'User'}</p>
           <p className="text-slate">{user?.email}</p>
         </div>
@@ -24,6 +37,7 @@ export default function PortalHeader() {
             {initials}
           </AvatarFallback>
         </Avatar>
+        <div className="ml-1 h-5 w-px bg-white/10" />
         <Button
           variant="ghost"
           size="icon-sm"

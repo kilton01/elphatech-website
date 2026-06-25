@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { projectMembers, users } from '@/lib/db/schema';
+import { projectMembers, projects, users } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { createNotification } from '@/lib/notifications';
+import { sendProjectInviteEmail } from '@/lib/bird';
 
 export async function GET(
   request: Request,
@@ -58,11 +61,15 @@ export async function POST(
   }
 
   const { projectId } = await context.params;
-  const { email } = await request.json();
+  const body = await request.json();
+  const emailSchema = z.string().email('Valid email is required');
+  const parsed = emailSchema.safeParse(body?.email);
 
-  if (!email || typeof email !== 'string' || !email.includes('@')) {
+  if (!parsed.success) {
     return NextResponse.json({ error: 'Valid email is required' }, { status: 400 });
   }
+
+  const email = parsed.data;
 
   let user = await db
     .select({ id: users.id })
@@ -104,6 +111,30 @@ export async function POST(
       role: 'client',
     })
     .returning();
+
+  try {
+    const project = await db
+      .select({ name: projects.name })
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .then((rows) => rows[0]);
+
+    const inviterName = session.user.name || session.user.email || 'An admin';
+    const projectName = project?.name || 'a project';
+
+    await Promise.all([
+      createNotification({
+        userId: user.id,
+        projectId,
+        type: 'member_invited',
+        title: 'Project invitation',
+        body: `You've been added to ${projectName}`,
+      }),
+      sendProjectInviteEmail(email, projectName, inviterName),
+    ]);
+  } catch (err) {
+    console.error('Notification/email error:', err);
+  }
 
   return NextResponse.json(member, { status: 201 });
 }
