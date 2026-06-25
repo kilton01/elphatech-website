@@ -42,7 +42,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Plus, MoreHorizontal, BadgeCheck, Layers, Lock } from 'lucide-react';
+import { Plus, MoreHorizontal, BadgeCheck, Layers, Lock, CircleDot } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -124,7 +124,8 @@ export default function KanbanBoard({
   const [detailOpen, setDetailOpen] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [inlineColumn, setInlineColumn] = useState<string | null>(null);
-  const [groupByMilestone, setGroupByMilestone] = useState(false);
+  type ViewMode = 'kanban' | 'milestone' | 'upnext';
+  const [viewMode, setViewMode] = useState<ViewMode>('kanban');
   const inlineInputRef = useRef<HTMLInputElement>(null);
   const prevServerRef = useRef(serverTasks);
 
@@ -297,18 +298,32 @@ export default function KanbanBoard({
         </p>
         <div className="flex items-center gap-2">
           {milestones.length > 0 && (
-            <Button
-              size="sm"
-              variant={groupByMilestone ? 'default' : 'outline'}
-              onClick={() => setGroupByMilestone(!groupByMilestone)}
-              className={cn(
-                'gap-1.5 text-xs',
-                groupByMilestone && 'bg-brand-muted text-red border-red/20',
-              )}
-            >
-              <Layers className="size-3.5" />
-              Group by Milestone
-            </Button>
+            <>
+              <Button
+                size="sm"
+                variant={viewMode === 'milestone' ? 'default' : 'outline'}
+                onClick={() => setViewMode(viewMode === 'milestone' ? 'kanban' : 'milestone')}
+                className={cn(
+                  'gap-1.5 text-xs',
+                  viewMode === 'milestone' && 'bg-brand-muted text-red border-red/20',
+                )}
+              >
+                <Layers className="size-3.5" />
+                Milestones
+              </Button>
+              <Button
+                size="sm"
+                variant={viewMode === 'upnext' ? 'default' : 'outline'}
+                onClick={() => setViewMode(viewMode === 'upnext' ? 'kanban' : 'upnext')}
+                className={cn(
+                  'gap-1.5 text-xs',
+                  viewMode === 'upnext' && 'bg-brand-muted text-red border-red/20',
+                )}
+              >
+                <CircleDot className="size-3.5" />
+                Up Next
+              </Button>
+            </>
           )}
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger render={<Button size="sm" className="bg-red text-white hover:bg-red2" />}>
@@ -379,7 +394,79 @@ export default function KanbanBoard({
         </div>
       </div>
 
-      {groupByMilestone ? (
+      {viewMode === 'upnext' ? (
+        <div className="space-y-4">
+          <p className="text-xs text-slate px-1">Tasks ready to start — all prerequisites complete.</p>
+          {milestones.map((m) => {
+            const readyTasks = serverTasks.filter(
+              (t) => t.milestoneId === m.id && t.isReady && t.status !== 'done'
+            );
+            if (readyTasks.length === 0) return null;
+
+            return (
+              <div key={m.id} className="space-y-2">
+                <div className="flex items-center gap-2 px-1">
+                  <h3 className="text-sm font-semibold text-white">{m.title}</h3>
+                  <Badge variant="outline" className="text-[10px]">
+                    Phase {Math.min(...readyTasks.map(t => t.phase))}
+                  </Badge>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {readyTasks.sort((a, b) => a.phase - b.phase || a.position - b.position).map((task) => (
+                    <button
+                      key={task.id}
+                      onClick={() => { setSelectedTask(task); setDetailOpen(true); }}
+                      className="rounded-lg border border-subtle bg-surface-2 p-3 text-left hover:border-strong transition-colors"
+                    >
+                      <p className="text-sm font-medium text-white">{task.title}</p>
+                      <div className="mt-2 flex items-center gap-2">
+                        <Badge variant="outline" className={cn('text-[10px]', priorityConfig[task.priority].className)}>
+                          {priorityConfig[task.priority].label}
+                        </Badge>
+                        <span className="text-[10px] text-tertiary">Phase {task.phase}</span>
+                        {task.assigneeName && (
+                          <span className="flex size-5 items-center justify-center rounded-full bg-brand-muted text-[9px] font-medium text-red">
+                            {task.assigneeName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+
+          {serverTasks.filter(t => t.isReady && t.status !== 'done' && !t.milestoneId).length > 0 && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold text-slate px-1">Unassigned</h3>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {serverTasks.filter(t => t.isReady && t.status !== 'done' && !t.milestoneId).map((task) => (
+                  <button
+                    key={task.id}
+                    onClick={() => { setSelectedTask(task); setDetailOpen(true); }}
+                    className="rounded-lg border border-subtle bg-surface-2 p-3 text-left hover:border-strong transition-colors"
+                  >
+                    <p className="text-sm font-medium text-white">{task.title}</p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <Badge variant="outline" className={cn('text-[10px]', priorityConfig[task.priority].className)}>
+                        {priorityConfig[task.priority].label}
+                      </Badge>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {serverTasks.filter(t => t.isReady && t.status !== 'done').length === 0 && (
+            <div className="flex flex-col items-center justify-center rounded-xl border border-brand bg-surface-1 py-16">
+              <BadgeCheck className="mb-2 size-8 text-success" />
+              <p className="text-sm text-slate">All current phase tasks are complete. Next phase unlocked!</p>
+            </div>
+          )}
+        </div>
+      ) : viewMode === 'milestone' ? (
         <div className="space-y-8">
           {milestones.map((m) => {
             const milestoneTasks = serverTasks.filter((t) => t.milestoneId === m.id);
