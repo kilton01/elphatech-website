@@ -37,7 +37,7 @@ export const sessions = pgTable('sessions', {
   sessionToken: text('session_token').primaryKey(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   expires: timestamp('expires', { mode: 'date' }).notNull(),
-});
+}, (t) => [index('sessions_user_id_idx').on(t.userId)]);
 
 export const verificationTokens = pgTable('verification_tokens', {
   identifier: text('identifier').notNull(),
@@ -74,6 +74,7 @@ export const tasks = pgTable('tasks', {
   reporterId: uuid('reporter_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
   dueDate: timestamp('due_date', { mode: 'date' }),
   position: integer('position').default(0).notNull(),
+  phase: integer('phase').default(1).notNull(),
   milestoneId: uuid('milestone_id').references(() => milestones.id, { onDelete: 'set null' }),
   signedOffAt: timestamp('signed_off_at', { mode: 'date' }),
   signedOffBy: uuid('signed_off_by').references(() => users.id, { onDelete: 'set null' }),
@@ -84,6 +85,8 @@ export const tasks = pgTable('tasks', {
   index('tasks_project_id_idx').on(t.projectId),
   index('tasks_assignee_id_idx').on(t.assigneeId),
   index('tasks_project_status_idx').on(t.projectId, t.status),
+  index('tasks_milestone_id_idx').on(t.milestoneId),
+  index('tasks_due_date_idx').on(t.dueDate),
 ]);
 
 export const files = pgTable('files', {
@@ -95,7 +98,10 @@ export const files = pgTable('files', {
   size: integer('size').notNull(),
   mimeType: text('mime_type').notNull(),
   createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
-}, (t) => [index('files_project_id_idx').on(t.projectId)]);
+}, (t) => [
+  index('files_project_id_idx').on(t.projectId),
+  index('files_uploaded_by_id_idx').on(t.uploadedById),
+]);
 
 export const comments = pgTable('comments', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -108,6 +114,7 @@ export const comments = pgTable('comments', {
 }, (t) => [
   index('comments_task_id_idx').on(t.taskId),
   index('comments_project_id_idx').on(t.projectId),
+  index('comments_author_id_idx').on(t.authorId),
 ]);
 
 export const milestones = pgTable('milestones', {
@@ -153,7 +160,10 @@ export const notifications = pgTable('notifications', {
 }, (t) => [
   index('notifications_user_id_idx').on(t.userId),
   index('notifications_user_unread_idx').on(t.userId, t.read),
+  index('notifications_emailed_at_idx').on(t.emailedAt),
 ]);
+
+export const contactStatusEnum = pgEnum('contact_status', ['new', 'read', 'replied', 'converted']);
 
 export const contactSubmissions = pgTable('contact_submissions', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -162,6 +172,8 @@ export const contactSubmissions = pgTable('contact_submissions', {
   email: text('email').notNull(),
   service: text('service'),
   message: text('message').notNull(),
+  status: contactStatusEnum('status').notNull().default('new'),
+  notes: text('notes'),
   respondedAt: timestamp('responded_at', { mode: 'date' }),
   createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
 });

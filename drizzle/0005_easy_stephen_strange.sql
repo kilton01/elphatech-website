@@ -1,0 +1,1 @@
+ALTER TABLE "tasks" ADD COLUMN "phase" integer DEFAULT 1 NOT NULL;
