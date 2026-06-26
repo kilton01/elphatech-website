@@ -30,7 +30,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           const token = originalUrl.searchParams.get('token');
           const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
           const cleanUrl = token
-            ? `${baseUrl}/api/auth/verify?token=${token}&email=${encodeURIComponent(email)}`
+            ? `${baseUrl}/api/auth/verify?token=${token}`
             : url;
           await sendMagicLinkEmail(email, cleanUrl);
         } catch (err) {
