@@ -13,8 +13,9 @@ import {
   users,
   invoices,
   invoiceItems,
+  contactSubmissions,
 } from '@/lib/db/schema';
-import { eq, and, lt, ne, sql, desc, isNull, inArray } from 'drizzle-orm';
+import { eq, and, ne, sql, desc, isNull, inArray, lt, count, sum } from 'drizzle-orm';
 
 export async function GET() {
   const session = await auth();
@@ -23,65 +24,67 @@ export async function GET() {
   }
 
   const now = new Date();
-  const nowISO = now.toISOString();
+  const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-  // Portfolio summary
-  const allProjects = await db.select({ id: projects.id }).from(projects);
-  const totalProjects = allProjects.length;
+  // --- Summary: 7 independent queries in parallel ---
+  const [
+    totalProjectsResult,
+    activeProjectsResult,
+    totalClientsResult,
+    overdueTasksResult,
+    pendingSignoffsResult,
+    unreadResult,
+    outstandingInvoicesResult,
+    newContactsResult,
+  ] = await Promise.all([
+    db.select({ count: sql<number>`count(*)::int` }).from(projects),
 
-  const activeProjectsResult = await db
-    .select({ projectId: tasks.projectId })
-    .from(tasks)
-    .where(ne(tasks.status, 'done'))
-    .groupBy(tasks.projectId);
+    db.selectDistinct({ projectId: tasks.projectId })
+      .from(tasks)
+      .where(ne(tasks.status, 'done')),
+
+    db.select({ userId: projectMembers.userId })
+      .from(projectMembers)
+      .innerJoin(users, eq(users.id, projectMembers.userId))
+      .where(eq(users.role, 'client'))
+      .groupBy(projectMembers.userId),
+
+    db.select({ count: sql<number>`count(*)::int` })
+      .from(tasks)
+      .where(and(lt(tasks.dueDate, now), ne(tasks.status, 'done'))),
+
+    db.select({ count: sql<number>`count(*)::int` })
+      .from(tasks)
+      .where(and(eq(tasks.status, 'review'), isNull(tasks.signedOffAt))),
+
+    db.select({ count: sql<number>`count(*)::int` })
+      .from(notifications)
+      .where(and(eq(notifications.userId, session.user.id), eq(notifications.read, false))),
+
+    db.select({
+      count: sql<number>`count(DISTINCT ${invoices.id})::int`,
+      total: sql<number>`COALESCE(sum(${invoiceItems.amount}::numeric), 0)`,
+    })
+      .from(invoices)
+      .leftJoin(invoiceItems, eq(invoiceItems.invoiceId, invoices.id))
+      .where(eq(invoices.status, 'sent')),
+
+    db.select({ count: sql<number>`count(*)::int` })
+      .from(contactSubmissions)
+      .where(eq(contactSubmissions.status, 'new')),
+  ]);
+
+  const totalProjects = totalProjectsResult[0]?.count ?? 0;
   const activeProjects = activeProjectsResult.length;
-
-  const totalClientsResult = await db
-    .select({ userId: projectMembers.userId })
-    .from(projectMembers)
-    .innerJoin(users, eq(users.id, projectMembers.userId))
-    .where(eq(users.role, 'client'))
-    .groupBy(projectMembers.userId);
   const totalClients = totalClientsResult.length;
+  const overdueTasks = overdueTasksResult[0]?.count ?? 0;
+  const pendingSignoffs = pendingSignoffsResult[0]?.count ?? 0;
+  const unreadNotifications = unreadResult[0]?.count ?? 0;
+  const outstandingInvoices = outstandingInvoicesResult[0]?.count ?? 0;
+  const outstandingInvoiceTotal = Number(outstandingInvoicesResult[0]?.total ?? 0);
+  const newContacts = newContactsResult[0]?.count ?? 0;
 
-  const overdueTasksResult = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(tasks)
-    .where(and(lt(tasks.dueDate, now), ne(tasks.status, 'done')))
-    .then((rows) => rows[0]);
-  const overdueTasks = overdueTasksResult?.count ?? 0;
-
-  const pendingSignoffsResult = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(tasks)
-    .where(and(eq(tasks.status, 'review'), isNull(tasks.signedOffAt)))
-    .then((rows) => rows[0]);
-  const pendingSignoffs = pendingSignoffsResult?.count ?? 0;
-
-  const unreadResult = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(notifications)
-    .where(and(eq(notifications.userId, session.user.id), eq(notifications.read, false)))
-    .then((rows) => rows[0]);
-  const unreadNotifications = unreadResult?.count ?? 0;
-
-  // Outstanding invoices (sent but not paid)
-  const outstandingInvoiceRows = await db
-    .select({ id: invoices.id, invoiceId: invoices.id })
-    .from(invoices)
-    .where(eq(invoices.status, 'sent'));
-
-  let outstandingInvoiceTotal = 0;
-  for (const inv of outstandingInvoiceRows) {
-    const items = await db
-      .select({ amount: invoiceItems.amount })
-      .from(invoiceItems)
-      .where(eq(invoiceItems.invoiceId, inv.id));
-    outstandingInvoiceTotal += items.reduce((sum, i) => sum + parseFloat(i.amount), 0);
-  }
-  const outstandingInvoices = outstandingInvoiceRows.length;
-
-  // Per-project health data
+  // --- Per-project health: bulk queries instead of N+1 ---
   const projectRows = await db
     .select({
       id: projects.id,
@@ -91,129 +94,175 @@ export async function GET() {
     })
     .from(projects);
 
-  const projectData = await Promise.all(
-    projectRows.map(async (p) => {
-      const [taskStats] = await db
-        .select({
-          taskTotal: sql<number>`count(*)::int`,
-          taskDone: sql<number>`count(case when ${tasks.status} = 'done' then 1 end)::int`,
-          overdueCount: sql<number>`count(case when ${tasks.dueDate} < ${nowISO} and ${tasks.status} != 'done' then 1 end)::int`,
-        })
+  const projectIds = projectRows.map((p) => p.id);
+
+  let projectData: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    createdAt: Date;
+    clientCount: number;
+    taskTotal: number;
+    taskDone: number;
+    overdueCount: number;
+    milestoneCount: number;
+    milestonesComplete: number;
+    lastActivityAt: Date | null;
+    lastClientActivityAt: Date | null;
+    health: 'on_track' | 'at_risk' | 'overdue';
+  }> = [];
+
+  if (projectIds.length > 0) {
+    const [
+      taskStatRows,
+      milestoneCountRows,
+      milestoneCompletionRows,
+      activityRows,
+      clientCountRows,
+      clientCommentRows,
+      clientFileRows,
+    ] = await Promise.all([
+      // Task stats per project
+      db.select({
+        projectId: tasks.projectId,
+        taskTotal: sql<number>`count(*)::int`,
+        taskDone: sql<number>`count(case when ${tasks.status} = 'done' then 1 end)::int`,
+        overdueCount: sql<number>`count(case when ${tasks.dueDate} < ${now.toISOString()} and ${tasks.status} != 'done' then 1 end)::int`,
+      })
         .from(tasks)
-        .where(eq(tasks.projectId, p.id));
+        .where(inArray(tasks.projectId, projectIds))
+        .groupBy(tasks.projectId),
 
-      const clientCountResult = await db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(projectMembers)
-        .innerJoin(users, eq(users.id, projectMembers.userId))
-        .where(and(eq(projectMembers.projectId, p.id), eq(users.role, 'client')))
-        .then((rows) => rows[0]);
-
-      const [milestoneStats] = await db
-        .select({
-          milestoneCount: sql<number>`count(*)::int`,
-        })
+      // Milestone count per project
+      db.select({
+        projectId: milestones.projectId,
+        milestoneCount: sql<number>`count(*)::int`,
+        atRiskCount: sql<number>`count(case when ${milestones.endDate} <= ${sevenDaysFromNow.toISOString()} and ${milestones.endDate} > ${now.toISOString()} then 1 end)::int`,
+      })
         .from(milestones)
-        .where(eq(milestones.projectId, p.id));
+        .where(inArray(milestones.projectId, projectIds))
+        .groupBy(milestones.projectId),
 
-      // Milestones complete: a milestone is complete if all its tasks are signed off
-      const allMilestones = await db
-        .select({ id: milestones.id, endDate: milestones.endDate })
-        .from(milestones)
-        .where(eq(milestones.projectId, p.id));
+      // Milestones complete: milestones where all tasks are signed off
+      // A milestone is complete if it has tasks and all tasks have signedOffAt set
+      db.select({
+        milestoneId: tasks.milestoneId,
+        projectId: tasks.projectId,
+        totalTasks: sql<number>`count(*)::int`,
+        signedOffTasks: sql<number>`count(${tasks.signedOffAt})::int`,
+      })
+        .from(tasks)
+        .where(and(
+          inArray(tasks.projectId, projectIds),
+          sql`${tasks.milestoneId} IS NOT NULL`,
+        ))
+        .groupBy(tasks.milestoneId, tasks.projectId),
 
-      let milestonesComplete = 0;
-      let atRisk = false;
-      const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-
-      for (const ms of allMilestones) {
-        const msTasks = await db
-          .select({ signedOffAt: tasks.signedOffAt })
-          .from(tasks)
-          .where(eq(tasks.milestoneId, ms.id));
-
-        const isComplete = msTasks.length > 0 && msTasks.every((t) => t.signedOffAt !== null);
-        if (isComplete) milestonesComplete++;
-
-        if (!isComplete && ms.endDate <= sevenDaysFromNow && ms.endDate > now) {
-          atRisk = true;
-        }
-      }
-
-      const lastActivity = await db
-        .select({ createdAt: activities.createdAt })
+      // Last activity per project
+      db.select({
+        projectId: activities.projectId,
+        lastActivityAt: sql<Date>`max(${activities.createdAt})`,
+      })
         .from(activities)
-        .where(eq(activities.projectId, p.id))
-        .orderBy(desc(activities.createdAt))
-        .limit(1)
-        .then((rows) => rows[0]?.createdAt ?? null);
+        .where(inArray(activities.projectId, projectIds))
+        .groupBy(activities.projectId),
 
-      // Last client activity: most recent comment or file upload by a client
-      const clientMemberIds = await db
-        .select({ userId: projectMembers.userId })
+      // Client count per project
+      db.select({
+        projectId: projectMembers.projectId,
+        clientCount: sql<number>`count(*)::int`,
+      })
         .from(projectMembers)
         .innerJoin(users, eq(users.id, projectMembers.userId))
-        .where(and(eq(projectMembers.projectId, p.id), eq(users.role, 'client')))
-        .then((rows) => rows.map((r) => r.userId));
+        .where(and(inArray(projectMembers.projectId, projectIds), eq(users.role, 'client')))
+        .groupBy(projectMembers.projectId),
 
-      let lastClientActivityAt: Date | null = null;
-      if (clientMemberIds.length > 0) {
-        const lastComment = await db
-          .select({ createdAt: comments.createdAt })
-          .from(comments)
-          .where(
-            and(
-              eq(comments.projectId, p.id),
-              inArray(comments.authorId, clientMemberIds),
-            ),
-          )
-          .orderBy(desc(comments.createdAt))
-          .limit(1)
-          .then((rows) => rows[0]?.createdAt ?? null);
+      // Last client comment per project
+      db.select({
+        projectId: comments.projectId,
+        lastCommentAt: sql<Date>`max(${comments.createdAt})`,
+      })
+        .from(comments)
+        .innerJoin(projectMembers, and(
+          eq(projectMembers.userId, comments.authorId),
+          eq(projectMembers.projectId, comments.projectId),
+        ))
+        .innerJoin(users, and(eq(users.id, comments.authorId), eq(users.role, 'client')))
+        .where(inArray(comments.projectId, projectIds))
+        .groupBy(comments.projectId),
 
-        const lastFile = await db
-          .select({ createdAt: files.createdAt })
-          .from(files)
-          .where(
-            and(
-              eq(files.projectId, p.id),
-              inArray(files.uploadedById, clientMemberIds),
-            ),
-          )
-          .orderBy(desc(files.createdAt))
-          .limit(1)
-          .then((rows) => rows[0]?.createdAt ?? null);
+      // Last client file upload per project
+      db.select({
+        projectId: files.projectId,
+        lastFileAt: sql<Date>`max(${files.createdAt})`,
+      })
+        .from(files)
+        .innerJoin(projectMembers, and(
+          eq(projectMembers.userId, files.uploadedById),
+          eq(projectMembers.projectId, files.projectId),
+        ))
+        .innerJoin(users, and(eq(users.id, files.uploadedById), eq(users.role, 'client')))
+        .where(inArray(files.projectId, projectIds))
+        .groupBy(files.projectId),
+    ]);
 
-        if (lastComment && lastFile) {
-          lastClientActivityAt = lastComment > lastFile ? lastComment : lastFile;
-        } else {
-          lastClientActivityAt = lastComment || lastFile;
-        }
+    // Build lookup maps
+    const taskMap = new Map(taskStatRows.map((r) => [r.projectId, r]));
+    const milestoneMap = new Map(milestoneCountRows.map((r) => [r.projectId, r]));
+    const activityMap = new Map(activityRows.map((r) => [r.projectId, r.lastActivityAt]));
+    const clientCountMap = new Map(clientCountRows.map((r) => [r.projectId, r.clientCount]));
+    const clientCommentMap = new Map(clientCommentRows.map((r) => [r.projectId, r.lastCommentAt]));
+    const clientFileMap = new Map(clientFileRows.map((r) => [r.projectId, r.lastFileAt]));
+
+    // Compute milestones complete per project
+    const milestonesCompleteMap = new Map<string, number>();
+    for (const row of milestoneCompletionRows) {
+      if (row.projectId && row.totalTasks > 0 && row.totalTasks === row.signedOffTasks) {
+        milestonesCompleteMap.set(
+          row.projectId,
+          (milestonesCompleteMap.get(row.projectId) ?? 0) + 1,
+        );
       }
+    }
+
+    projectData = projectRows.map((p) => {
+      const t = taskMap.get(p.id);
+      const m = milestoneMap.get(p.id);
+      const overdueCount = t?.overdueCount ?? 0;
+      const atRiskMilestones = m?.atRiskCount ?? 0;
 
       let health: 'on_track' | 'at_risk' | 'overdue' = 'on_track';
-      if (taskStats.overdueCount > 0) health = 'overdue';
-      else if (atRisk) health = 'at_risk';
+      if (overdueCount > 0) health = 'overdue';
+      else if (atRiskMilestones > 0) health = 'at_risk';
+
+      const lastComment = clientCommentMap.get(p.id) ?? null;
+      const lastFile = clientFileMap.get(p.id) ?? null;
+      let lastClientActivityAt: Date | null = null;
+      if (lastComment && lastFile) {
+        lastClientActivityAt = lastComment > lastFile ? lastComment : lastFile;
+      } else {
+        lastClientActivityAt = lastComment || lastFile;
+      }
 
       return {
         id: p.id,
         name: p.name,
         slug: p.slug,
         createdAt: p.createdAt,
-        clientCount: clientCountResult?.count ?? 0,
-        taskTotal: taskStats.taskTotal,
-        taskDone: taskStats.taskDone,
-        overdueCount: taskStats.overdueCount,
-        milestoneCount: milestoneStats.milestoneCount,
-        milestonesComplete,
-        lastActivityAt: lastActivity,
+        clientCount: clientCountMap.get(p.id) ?? 0,
+        taskTotal: t?.taskTotal ?? 0,
+        taskDone: t?.taskDone ?? 0,
+        overdueCount,
+        milestoneCount: m?.milestoneCount ?? 0,
+        milestonesComplete: milestonesCompleteMap.get(p.id) ?? 0,
+        lastActivityAt: activityMap.get(p.id) ?? null,
         lastClientActivityAt,
         health,
       };
-    }),
-  );
+    });
+  }
 
-  // Client activity data
+  // --- Client activity: bulk queries instead of N+1 ---
   const clientUsers = await db
     .select({
       userId: users.id,
@@ -223,30 +272,52 @@ export async function GET() {
     .from(users)
     .where(eq(users.role, 'client'));
 
-  const clientData = await Promise.all(
-    clientUsers.map(async (c) => {
-      const projectCount = await db
-        .select({ count: sql<number>`count(*)::int` })
+  let clientData: Array<{
+    userId: string;
+    name: string | null;
+    email: string;
+    projectCount: number;
+    lastCommentAt: Date | null;
+    lastFileUploadAt: Date | null;
+    lastActiveAt: Date | null;
+  }> = [];
+
+  if (clientUsers.length > 0) {
+    const clientUserIds = clientUsers.map((c) => c.userId);
+
+    const [clientProjectCounts, clientLastComments, clientLastFiles] = await Promise.all([
+      db.select({
+        userId: projectMembers.userId,
+        count: sql<number>`count(*)::int`,
+      })
         .from(projectMembers)
-        .where(eq(projectMembers.userId, c.userId))
-        .then((rows) => rows[0]?.count ?? 0);
+        .where(inArray(projectMembers.userId, clientUserIds))
+        .groupBy(projectMembers.userId),
 
-      const lastCommentAt = await db
-        .select({ createdAt: comments.createdAt })
+      db.select({
+        authorId: comments.authorId,
+        lastAt: sql<Date>`max(${comments.createdAt})`,
+      })
         .from(comments)
-        .where(eq(comments.authorId, c.userId))
-        .orderBy(desc(comments.createdAt))
-        .limit(1)
-        .then((rows) => rows[0]?.createdAt ?? null);
+        .where(inArray(comments.authorId, clientUserIds))
+        .groupBy(comments.authorId),
 
-      const lastFileUploadAt = await db
-        .select({ createdAt: files.createdAt })
+      db.select({
+        uploadedById: files.uploadedById,
+        lastAt: sql<Date>`max(${files.createdAt})`,
+      })
         .from(files)
-        .where(eq(files.uploadedById, c.userId))
-        .orderBy(desc(files.createdAt))
-        .limit(1)
-        .then((rows) => rows[0]?.createdAt ?? null);
+        .where(inArray(files.uploadedById, clientUserIds))
+        .groupBy(files.uploadedById),
+    ]);
 
+    const projectCountMap = new Map(clientProjectCounts.map((r) => [r.userId, r.count]));
+    const lastCommentMap = new Map(clientLastComments.map((r) => [r.authorId, r.lastAt]));
+    const lastFileMap = new Map(clientLastFiles.map((r) => [r.uploadedById, r.lastAt]));
+
+    clientData = clientUsers.map((c) => {
+      const lastCommentAt = lastCommentMap.get(c.userId) ?? null;
+      const lastFileUploadAt = lastFileMap.get(c.userId) ?? null;
       let lastActiveAt: Date | null = null;
       if (lastCommentAt && lastFileUploadAt) {
         lastActiveAt = lastCommentAt > lastFileUploadAt ? lastCommentAt : lastFileUploadAt;
@@ -258,13 +329,13 @@ export async function GET() {
         userId: c.userId,
         name: c.name,
         email: c.email,
-        projectCount,
+        projectCount: projectCountMap.get(c.userId) ?? 0,
         lastCommentAt,
         lastFileUploadAt,
         lastActiveAt,
       };
-    }),
-  );
+    });
+  }
 
   return NextResponse.json({
     summary: {
@@ -276,6 +347,7 @@ export async function GET() {
       unreadNotifications,
       outstandingInvoices,
       outstandingInvoiceTotal,
+      newContacts,
     },
     projects: projectData,
     clients: clientData,

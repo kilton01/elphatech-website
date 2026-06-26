@@ -1,12 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Pencil, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function EditableName({ initialName }: { initialName: string }) {
+  const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(initialName);
   const [draft, setDraft] = useState(initialName);
@@ -35,6 +37,7 @@ export default function EditableName({ initialName }: { initialName: string }) {
       setDraft(updated.name);
       setEditing(false);
       toast.success('Name updated');
+      router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to update name');
     } finally {

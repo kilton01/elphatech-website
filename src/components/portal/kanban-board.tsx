@@ -11,7 +11,7 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  closestCenter,
+  closestCorners,
   useDroppable,
 } from '@dnd-kit/core';
 import {
@@ -129,18 +129,40 @@ export default function KanbanBoard({
   const [viewMode, setViewMode] = useState<ViewMode>('kanban');
   const inlineInputRef = useRef<HTMLInputElement>(null);
   const prevServerRef = useRef(serverTasks);
+  const pendingPatchRef = useRef(0);
+  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastKnownGoodRef = useRef(serverTasks);
 
   const milestoneMap = Object.fromEntries(milestones.map((m) => [m.id, m]));
+
+  const columnsRef = useRef(columns);
+  useEffect(() => {
+    columnsRef.current = columns;
+  }, [columns]);
 
   // Sync from server only when server data actually changes
   useEffect(() => {
     if (prevServerRef.current !== serverTasks) {
       prevServerRef.current = serverTasks;
-      if (!activeId) {
+      lastKnownGoodRef.current = serverTasks;
+      if (!activeId && pendingPatchRef.current === 0) {
         setColumns(buildColumns(serverTasks));
       }
     }
   }, [serverTasks, activeId]);
+
+  const debouncedRefresh = useCallback(() => {
+    if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current);
+    refreshTimeoutRef.current = setTimeout(() => {
+      router.refresh();
+    }, 500);
+  }, [router]);
+
+  useEffect(() => {
+    return () => {
+      if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current);
+    };
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -160,12 +182,17 @@ export default function KanbanBoard({
     const { active, over } = event;
     if (!over) return;
 
-    const activeColId = findColumn(columns, active.id as string);
-    const overColId = findColumn(columns, over.id as string);
-
-    if (!activeColId || !overColId || activeColId === overColId) return;
-
     setColumns((prev) => {
+      const activeColId = findColumn(prev, active.id as string);
+      let overColId = findColumn(prev, over.id as string);
+
+      // If over.id is a column id itself (empty column drop zone)
+      if (!overColId && (over.id as string) in prev) {
+        overColId = over.id as ColumnId;
+      }
+
+      if (!activeColId || !overColId || activeColId === overColId) return prev;
+
       const activeItems = [...prev[activeColId]];
       const overItems = [...prev[overColId]];
       const activeIndex = activeItems.findIndex((t) => t.id === active.id);
@@ -178,7 +205,7 @@ export default function KanbanBoard({
 
       return { ...prev, [activeColId]: activeItems, [overColId]: overItems };
     });
-  }, [columns]);
+  }, []);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
@@ -186,14 +213,20 @@ export default function KanbanBoard({
 
     if (!over) return;
 
-    const activeColId = findColumn(columns, active.id as string);
-    const overColId = findColumn(columns, over.id as string);
+    // Use ref to get the latest columns state (after handleDragOver updates)
+    const latestColumns = columnsRef.current;
+
+    const activeColId = findColumn(latestColumns, active.id as string);
+    let overColId = findColumn(latestColumns, over.id as string);
+    if (!overColId && (over.id as string) in latestColumns) {
+      overColId = over.id as ColumnId;
+    }
 
     if (!activeColId || !overColId) return;
 
     // Handle reorder within same column
     if (activeColId === overColId) {
-      const items = columns[activeColId];
+      const items = latestColumns[activeColId];
       const oldIndex = items.findIndex((t) => t.id === active.id);
       const newIndex = items.findIndex((t) => t.id === over.id);
 
@@ -205,10 +238,11 @@ export default function KanbanBoard({
       }
     }
 
-    // Persist to server
-    const finalCol = findColumn(columns, active.id as string);
+    // Persist to server — read from ref again after potential reorder
+    const currentColumns = columnsRef.current;
+    const finalCol = findColumn(currentColumns, active.id as string);
     if (!finalCol) return;
-    const finalItems = columns[finalCol];
+    const finalItems = currentColumns[finalCol];
     const finalIndex = finalItems.findIndex((t) => t.id === active.id);
     const task = finalItems[finalIndex];
     if (!task) return;
@@ -218,6 +252,9 @@ export default function KanbanBoard({
     const positionChanged = finalIndex !== originalTask?.position;
 
     if (!statusChanged && !positionChanged) return;
+
+    pendingPatchRef.current += 1;
+    const thisPatch = pendingPatchRef.current;
 
     fetch(`/api/projects/${projectId}/tasks/${task.id}`, {
       method: 'PATCH',
@@ -229,13 +266,22 @@ export default function KanbanBoard({
           const data = await res.json().catch(() => ({}));
           throw new Error(data.error || 'Failed to update task');
         }
-        router.refresh();
+        if (thisPatch === pendingPatchRef.current) {
+          debouncedRefresh();
+        }
       })
       .catch((err) => {
-        setColumns(buildColumns(serverTasks));
-        toast.error(err.message || 'Failed to move task');
+        if (thisPatch === pendingPatchRef.current) {
+          setColumns(buildColumns(lastKnownGoodRef.current));
+          toast.error(err.message || 'Failed to move task. Please try again.');
+        }
+      })
+      .finally(() => {
+        if (thisPatch === pendingPatchRef.current) {
+          pendingPatchRef.current = 0;
+        }
       });
-  }, [columns, serverTasks, projectId, router]);
+  }, [serverTasks, projectId, debouncedRefresh]);
 
   async function handleAddTask(e: React.FormEvent) {
     e.preventDefault();
@@ -597,7 +643,7 @@ export default function KanbanBoard({
       ) : (
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
+        collisionDetection={closestCorners}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}

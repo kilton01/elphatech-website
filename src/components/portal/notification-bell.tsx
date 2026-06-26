@@ -93,21 +93,21 @@ export default function NotificationBell() {
   }
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative inline-flex">
       <button
         onClick={() => setOpen(!open)}
         className="relative flex size-8 items-center justify-center rounded-md text-slate transition-colors hover:bg-white/5 hover:text-white"
       >
         <Bell className="size-4" />
         {unreadCount > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-red text-[10px] font-bold text-white">
-            {unreadCount > 9 ? '9+' : unreadCount}
+          <span className="absolute -right-1 -top-1 flex min-w-4 h-4 items-center justify-center rounded-full bg-[var(--brand-primary)] px-1 text-[10px] font-bold text-white">
+            {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 overflow-hidden rounded-xl border border-brand bg-navy2 shadow-xl">
+        <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-xl border border-brand bg-navy2 shadow-xl">
           <div className="flex items-center justify-between border-b border-brand px-4 py-3">
             <h3 className="text-sm font-medium text-white">Notifications</h3>
             {unreadCount > 0 && (

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
+import { randomBytes, createHash } from 'crypto';
 import { auth } from './auth';
 import { db } from './db';
-import { projectMembers } from './db/schema';
+import { projectMembers, verificationTokens } from './db/schema';
 import { eq, and } from 'drizzle-orm';
 
 export async function getAuthenticatedUser() {
@@ -35,4 +36,25 @@ export function unauthorizedResponse() {
 
 export function forbiddenResponse() {
   return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+}
+
+export async function generateInviteLink(email: string, callbackUrl?: string): Promise<string> {
+  const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+  const token = randomBytes(32).toString('hex');
+  const hashedToken = createHash('sha256').update(`${token}${process.env.AUTH_SECRET}`).digest('hex');
+  const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+  await db.insert(verificationTokens).values({
+    identifier: email.toLowerCase(),
+    token: hashedToken,
+    expires,
+  });
+
+  const params = new URLSearchParams({
+    callbackUrl: callbackUrl || `${baseUrl}/portal`,
+    token,
+    email: email.toLowerCase(),
+  });
+
+  return `${baseUrl}/api/auth/callback/email?${params.toString()}`;
 }

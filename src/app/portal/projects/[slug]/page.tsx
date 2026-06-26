@@ -21,12 +21,12 @@ export default async function ProjectOverviewPage({
       name: projects.name,
       description: projects.description,
       memberCount: sql<number>`(
-        SELECT COUNT(*) FROM ${projectMembers}
-        WHERE ${projectMembers.projectId} = ${projects.id}
+        SELECT COUNT(*)::int FROM project_members
+        WHERE project_members.project_id = projects.id
       )`,
       taskCount: sql<number>`(
-        SELECT COUNT(*) FROM ${tasks}
-        WHERE ${tasks.projectId} = ${projects.id}
+        SELECT COUNT(*)::int FROM tasks
+        WHERE tasks.project_id = projects.id
       )`,
       createdAt: projects.createdAt,
     })

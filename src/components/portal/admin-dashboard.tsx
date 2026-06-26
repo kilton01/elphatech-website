@@ -14,8 +14,15 @@ import {
   UserCog,
   Eye,
   Receipt,
+  Inbox,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
 type Summary = {
@@ -27,6 +34,7 @@ type Summary = {
   unreadNotifications: number;
   outstandingInvoices: number;
   outstandingInvoiceTotal: number;
+  newContacts: number;
 };
 
 type Project = {
@@ -61,6 +69,15 @@ type DashboardData = {
   clients: Client[];
 };
 
+type PendingSignoff = {
+  id: string;
+  title: string;
+  priority: string;
+  dueDate: string | null;
+  projectName: string;
+  projectSlug: string;
+};
+
 function timeAgo(date: string | null): string {
   if (!date) return 'Never';
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
@@ -86,6 +103,22 @@ export default function AdminDashboard({ userName }: { userName: string }) {
   const [loading, setLoading] = useState(true);
   const [sortKey, setSortKey] = useState<string>('health');
   const [sortAsc, setSortAsc] = useState(true);
+  const [signoffDialogOpen, setSignoffDialogOpen] = useState(false);
+  const [signoffs, setSignoffs] = useState<PendingSignoff[]>([]);
+  const [signoffsLoading, setSignoffsLoading] = useState(false);
+
+  function openSignoffDialog() {
+    setSignoffDialogOpen(true);
+    setSignoffsLoading(true);
+    fetch('/api/admin/signoffs')
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then(setSignoffs)
+      .catch(() => setSignoffs([]))
+      .finally(() => setSignoffsLoading(false));
+  }
 
   useEffect(() => {
     fetch('/api/admin/dashboard')
@@ -172,11 +205,14 @@ export default function AdminDashboard({ userName }: { userName: string }) {
         <SummaryCard icon={<Activity className="size-4 text-info" />} label="Active Projects" value={summary.activeProjects} color="text-info" />
         <SummaryCard icon={<Users className="size-4" />} label="Total Clients" value={summary.totalClients} />
         <SummaryCard icon={<AlertTriangle className="size-4 text-danger" />} label="Overdue Tasks" value={summary.overdueTasks} elevated={summary.overdueTasks > 0} color="text-danger" />
-        <Link href="/portal/projects">
+        <button onClick={openSignoffDialog} className="text-left">
           <SummaryCard icon={<BadgeCheck className="size-4 text-warning" />} label="Pending Sign-offs" value={summary.pendingSignoffs} elevated={summary.pendingSignoffs > 0} color="text-warning" />
-        </Link>
+        </button>
         <SummaryCard icon={<Bell className="size-4 text-red" />} label="Unread Notifications" value={summary.unreadNotifications} color="text-red" />
         <SummaryCard icon={<Receipt className="size-4 text-warning" />} label="Outstanding Invoices" value={summary.outstandingInvoices} elevated={summary.outstandingInvoices > 0} color="text-warning" subtitle={`$${summary.outstandingInvoiceTotal.toFixed(2)}`} />
+        <Link href="/portal/admin/contacts?status=new">
+          <SummaryCard icon={<Inbox className="size-4" />} label="New Enquiries" value={summary.newContacts} elevated={summary.newContacts > 0} color={summary.newContacts > 0 ? 'text-[var(--brand-primary)]' : 'text-slate'} />
+        </Link>
       </div>
 
       {/* Step 6: Quick Actions */}
@@ -250,6 +286,54 @@ export default function AdminDashboard({ userName }: { userName: string }) {
           </div>
         )}
       </div>
+
+      {/* Pending Sign-offs Dialog */}
+      <Dialog open={signoffDialogOpen} onOpenChange={setSignoffDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Pending Sign-offs</DialogTitle>
+          </DialogHeader>
+          {signoffsLoading ? (
+            <div className="space-y-3 py-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="h-12 animate-pulse rounded-lg bg-surface-2" />
+              ))}
+            </div>
+          ) : signoffs.length === 0 ? (
+            <p className="py-8 text-center text-sm text-slate">
+              No tasks pending sign-off.
+            </p>
+          ) : (
+            <div className="max-h-80 space-y-1 overflow-y-auto">
+              {Object.entries(
+                signoffs.reduce<Record<string, PendingSignoff[]>>((acc, s) => {
+                  const key = s.projectSlug;
+                  if (!acc[key]) acc[key] = [];
+                  acc[key].push(s);
+                  return acc;
+                }, {}),
+              ).map(([slug, tasks]) => (
+                <div key={slug} className="mb-3">
+                  <p className="mb-1 text-xs font-medium text-slate">
+                    {tasks[0].projectName}
+                  </p>
+                  {tasks.map((task) => (
+                    <Link
+                      key={task.id}
+                      href={`/portal/projects/${slug}/tasks`}
+                      onClick={() => setSignoffDialogOpen(false)}
+                      className="flex items-center justify-between rounded-lg px-3 py-2 transition-colors hover:bg-white/5"
+                    >
+                      <span className="text-sm text-white">{task.title}</span>
+                      <span className="text-xs text-slate capitalize">{task.priority}</span>
+                    </Link>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -15,14 +15,14 @@ const tabs = [
 ];
 
 export default function ProjectTabs({
-  projectId,
+  projectSlug,
   children,
 }: {
-  projectId: string;
+  projectSlug: string;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const base = `/portal/projects/${projectId}`;
+  const base = `/portal/projects/${projectSlug}`;
 
   return (
     <div className="space-y-6">

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { LayoutDashboard, FolderKanban, Settings, Users } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, Settings, Users, Inbox } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -14,6 +14,7 @@ const navItems = [
 
 const adminItems = [
   { href: '/portal/admin/users', label: 'Users', icon: Users },
+  { href: '/portal/admin/contacts', label: 'Contacts', icon: Inbox },
 ];
 
 export default function PortalNav() {

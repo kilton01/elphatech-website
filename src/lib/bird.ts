@@ -85,8 +85,9 @@ export async function sendMagicLinkEmail(email: string, url: string) {
   });
 }
 
-export async function sendProjectInviteEmail(email: string, projectName: string, inviterName: string) {
+export async function sendProjectInviteEmail(email: string, projectName: string, inviterName: string, inviteLink?: string) {
   const portalUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+  const link = inviteLink || `${portalUrl}/login`;
   return sendEmail({
     to: email,
     subject: `You've been added to ${projectName} — ElphaTech`,
@@ -98,14 +99,19 @@ export async function sendProjectInviteEmail(email: string, projectName: string,
             ${inviterName} added you to <strong style="color: #FFFFFF;">${projectName}</strong> on ElphaTech Portal.
             You can now view tasks, upload files, and leave comments.
           </p>
-          <a href="${portalUrl}/login" style="display: inline-block; background: #E8302A; color: white; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
+          <a href="${link}" style="display: inline-block; background: #E8302A; color: white; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
             Open Portal
           </a>
+          <p style="color: #64748B; font-size: 12px; margin: 24px 0 0; line-height: 1.4;">
+            This link will sign you in automatically. It expires in 7 days.
+          </p>
         </div>
       </div>
     `,
-    text: `${inviterName} added you to ${projectName} on ElphaTech Portal.\n\nSign in at: ${portalUrl}/login`,
+    text: `${inviterName} added you to ${projectName} on ElphaTech Portal.\n\nSign in: ${link}\n\nThis link expires in 7 days.`,
     tags: [{ name: 'category', value: 'invite' }],
+    trackClicks: false,
+    trackOpens: false,
     metadata: { project: projectName },
   });
 }
@@ -164,6 +170,32 @@ export async function sendCommentNotificationEmail(
     text: `${commenterName} commented on "${taskTitle}" in ${projectName}:\n\n"${commentPreview}"\n\nReply at: ${portalUrl}/portal`,
     tags: [{ name: 'category', value: 'comment' }],
     metadata: { project: projectName, task: taskTitle },
+  });
+}
+
+export async function sendClientLoginNotificationEmail(clientEmail: string, clientName: string | null) {
+  const displayName = clientName || clientEmail;
+  const now = new Date().toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+  return sendEmail({
+    to: 'admin@elphatechsolutions.com',
+    subject: `Client login: ${displayName}`,
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 0;">
+        <div style="background: #0A1628; border-radius: 12px; padding: 40px; border: 1px solid #1E293B;">
+          <p style="color: #64748B; margin: 0 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Client Login Alert</p>
+          <h2 style="color: #FFFFFF; margin: 0 0 16px; font-size: 20px;">${displayName} just signed in</h2>
+          <div style="background: #121E32; border-radius: 8px; padding: 16px; margin: 0 0 24px;">
+            <p style="color: #94A3B8; margin: 0 0 8px; font-size: 14px;"><strong style="color: #FFFFFF;">Email:</strong> ${clientEmail}</p>
+            <p style="color: #94A3B8; margin: 0; font-size: 14px;"><strong style="color: #FFFFFF;">Time:</strong> ${now}</p>
+          </div>
+          <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/portal" style="display: inline-block; background: #E8302A; color: white; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
+            Open Portal
+          </a>
+        </div>
+      </div>
+    `,
+    text: `Client login: ${displayName} (${clientEmail}) signed in at ${now}.`,
+    tags: [{ name: 'category', value: 'login-alert' }],
   });
 }
 

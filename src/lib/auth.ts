@@ -3,7 +3,7 @@ import { DrizzleAdapter } from '@auth/drizzle-adapter';
 import Email from 'next-auth/providers/email';
 import { db } from './db';
 import * as schema from './db/schema';
-import { sendMagicLinkEmail } from './bird';
+import { sendMagicLinkEmail, sendClientLoginNotificationEmail } from './bird';
 import { eq } from 'drizzle-orm';
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -29,6 +29,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
     }),
   ],
+  events: {
+    async signIn({ user }) {
+      if (user?.email && user.role !== 'admin') {
+        sendClientLoginNotificationEmail(user.email, user.name ?? null).catch(() => {});
+      }
+    },
+  },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {

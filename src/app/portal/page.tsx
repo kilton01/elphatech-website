@@ -158,7 +158,7 @@ export default async function DashboardPage() {
               {myTasks.map((task) => (
                 <Link
                   key={task.id}
-                  href={`/portal/projects/${task.projectSlug}`}
+                  href={`/portal/projects/${task.projectSlug}/tasks`}
                   className="flex items-center gap-3 rounded-lg p-2.5 transition-colors hover:bg-white/5"
                 >
                   <PriorityDot priority={task.priority} />

@@ -54,7 +54,7 @@ export default async function ProjectLayout({
           <h1 className="text-xl font-semibold text-white">{project.name}</h1>
         </div>
       </div>
-      <ProjectTabs projectId={project.slug}>{children}</ProjectTabs>
+      <ProjectTabs projectSlug={project.slug}>{children}</ProjectTabs>
     </div>
   );
 }

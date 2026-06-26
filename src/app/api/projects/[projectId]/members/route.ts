@@ -6,6 +6,7 @@ import { projectMembers, projects, users } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { createNotification } from '@/lib/notifications';
 import { sendProjectInviteEmail } from '@/lib/bird';
+import { generateInviteLink } from '@/lib/auth-helpers';
 
 export async function GET(
   request: Request,
@@ -122,6 +123,8 @@ export async function POST(
     const inviterName = session.user.name || session.user.email || 'An admin';
     const projectName = project?.name || 'a project';
 
+    const inviteLink = await generateInviteLink(email, `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/portal`);
+
     await Promise.all([
       createNotification({
         userId: user.id,
@@ -130,7 +133,7 @@ export async function POST(
         title: 'Project invitation',
         body: `You've been added to ${projectName}`,
       }),
-      sendProjectInviteEmail(email, projectName, inviterName),
+      sendProjectInviteEmail(email, projectName, inviterName, inviteLink),
     ]);
   } catch (err) {
     console.error('Notification/email error:', err);
