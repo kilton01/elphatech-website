@@ -51,10 +51,10 @@ export async function generateInviteLink(email: string, callbackUrl?: string): P
   });
 
   const params = new URLSearchParams({
-    callbackUrl: callbackUrl || `${baseUrl}/portal`,
     token,
     email: email.toLowerCase(),
+    callbackUrl: callbackUrl || `${baseUrl}/portal`,
   });
 
-  return `${baseUrl}/api/auth/callback/email?${params.toString()}`;
+  return `${baseUrl}/api/auth/verify?${params.toString()}`;
 }
