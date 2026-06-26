@@ -15,7 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Flag, Plus, Pencil, Trash2, X } from 'lucide-react';
+import { Flag, Plus, Pencil, Trash2, X, BadgeCheck, CircleDot, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -28,6 +28,7 @@ type Milestone = {
   position: number;
   taskCount: number;
   completedTaskCount: number;
+  phases: { phase: number; total: number; completed: number }[];
 };
 
 type UnassignedTask = {
@@ -240,6 +241,36 @@ export default function MilestonesList({
                   <p className="text-xs text-slate">
                     {m.completedTaskCount} of {m.taskCount} tasks complete
                   </p>
+                  {m.phases.length > 1 && (
+                    <div className="flex items-center gap-1.5">
+                      {m.phases.map((p) => {
+                        const isComplete = p.completed === p.total;
+                        const isActive = !isComplete && m.phases
+                          .filter(pp => pp.phase < p.phase)
+                          .every(pp => pp.completed === pp.total);
+                        return (
+                          <div
+                            key={p.phase}
+                            className={cn(
+                              'flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium',
+                              isComplete && 'bg-success/10 text-success',
+                              isActive && 'bg-warning/10 text-warning',
+                              !isComplete && !isActive && 'bg-surface-3 text-tertiary',
+                            )}
+                          >
+                            {isComplete ? (
+                              <BadgeCheck className="size-3" />
+                            ) : isActive ? (
+                              <CircleDot className="size-3" />
+                            ) : (
+                              <Lock className="size-3" />
+                            )}
+                            P{p.phase}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 {isAdmin && (

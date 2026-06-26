@@ -46,7 +46,26 @@ export async function GET(
     .groupBy(milestones.id)
     .orderBy(asc(milestones.position));
 
-  return NextResponse.json({ milestones: result });
+  const phaseData = await db
+    .select({
+      milestoneId: tasks.milestoneId,
+      phase: tasks.phase,
+      total: sql<number>`count(*)::int`,
+      completed: sql<number>`count(case when ${tasks.status} = 'done' and ${tasks.signedOffAt} is not null then 1 end)::int`,
+    })
+    .from(tasks)
+    .where(eq(tasks.projectId, projectId))
+    .groupBy(tasks.milestoneId, tasks.phase)
+    .orderBy(tasks.phase);
+
+  const enriched = result.map(m => ({
+    ...m,
+    phases: phaseData
+      .filter(p => p.milestoneId === m.id)
+      .map(p => ({ phase: p.phase, total: p.total, completed: p.completed })),
+  }));
+
+  return NextResponse.json({ milestones: enriched });
 }
 
 export async function POST(
