@@ -25,14 +25,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       from: process.env.EMAIL_FROM || 'ElphaTech <noreply@elphatechsolutions.com>',
       maxAge: 24 * 60 * 60,
       sendVerificationRequest: async ({ identifier: email, url }) => {
-        await sendMagicLinkEmail(email, url);
+        try {
+          await sendMagicLinkEmail(email, url);
+        } catch (err) {
+          console.error('Failed to send magic link email:', err);
+          throw new Error('Unable to send verification email. Please try again later.');
+        }
       },
     }),
   ],
   events: {
     async signIn({ user }) {
-      if (user?.email && user.role !== 'admin') {
-        sendClientLoginNotificationEmail(user.email, user.name ?? null).catch(() => {});
+      try {
+        if (user?.email && user.role !== 'admin') {
+          await sendClientLoginNotificationEmail(user.email, user.name ?? null);
+        }
+      } catch {
+        // Non-critical — don't block login if notification fails
       }
     },
   },

@@ -1,5 +1,5 @@
 const BIRD_API_URL = process.env.BIRD_API_URL || 'https://eu1.platform.bird.com';
-const BIRD_ACCESS_TOKEN = process.env.BIRD_ACCESS_TOKEN!;
+const BIRD_ACCESS_TOKEN = process.env.BIRD_ACCESS_TOKEN || '';
 const EMAIL_FROM = process.env.EMAIL_FROM || 'ElphaTech <noreply@elphatechsolutions.com>';
 
 function parseFromEmail(from: string): string {
@@ -27,6 +27,9 @@ type BirdEmailResponse = {
 };
 
 export async function sendEmail(opts: SendEmailOptions): Promise<BirdEmailResponse> {
+  if (!BIRD_ACCESS_TOKEN) {
+    throw new Error('BIRD_ACCESS_TOKEN is not configured');
+  }
   const fromEmail = parseFromEmail(opts.from || EMAIL_FROM);
   const recipients = Array.isArray(opts.to) ? opts.to : [opts.to];
 
