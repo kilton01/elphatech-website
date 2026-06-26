@@ -17,15 +17,17 @@ export default function VerifyRequestPage() {
       </div>
       <div className="rounded-lg border border-brand bg-surface-2 p-4 text-left">
         <p className="text-xs text-tertiary leading-relaxed">
-          Click the link in the email to sign in. The link expires in 15 minutes.
-          If you don&apos;t see it, check your spam folder.
+          Click the link in the email to sign in. If you don&apos;t see it, check your spam folder.
+        </p>
+        <p className="mt-2 text-xs text-tertiary leading-relaxed">
+          Links expire after 24 hours and can only be used once. If your link doesn&apos;t work, request a new one from the login page.
         </p>
       </div>
       <Link
         href="/login"
         className="inline-flex items-center gap-1.5 text-sm text-slate transition-colors hover:text-white"
       >
-        &larr; Back to sign in
+        &larr; Back to login
       </Link>
     </div>
   );

@@ -76,6 +76,10 @@ export async function sendMagicLinkEmail(email: string, url: string) {
             Sign In to Portal
           </a>
           <p style="color: #64748B; font-size: 12px; margin: 24px 0 0; line-height: 1.4;">
+            This link expires in 24 hours and can only be used once.
+            If it doesn't work, visit <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/login" style="color: #E8302A; text-decoration: none;">the login page</a> to request a new one.
+          </p>
+          <p style="color: #64748B; font-size: 12px; margin: 8px 0 0; line-height: 1.4;">
             If you didn't request this email, you can safely ignore it.
           </p>
         </div>
@@ -106,12 +110,15 @@ export async function sendProjectInviteEmail(email: string, projectName: string,
             Open Portal
           </a>
           <p style="color: #64748B; font-size: 12px; margin: 24px 0 0; line-height: 1.4;">
-            This link will sign you in automatically. It expires in 7 days.
+            This link will sign you in automatically. It expires in 7 days and can only be used once.
+          </p>
+          <p style="color: #64748B; font-size: 12px; margin: 8px 0 0; line-height: 1.4;">
+            If it doesn't work, visit <a href="${portalUrl}/login" style="color: #E8302A; text-decoration: none;">${portalUrl}/login</a> to request a new sign-in link.
           </p>
         </div>
       </div>
     `,
-    text: `${inviterName} added you to ${projectName} on ElphaTech Portal.\n\nSign in: ${link}\n\nThis link expires in 7 days.`,
+    text: `${inviterName} added you to ${projectName} on ElphaTech Portal.\n\nSign in: ${link}\n\nThis link expires in 7 days and can only be used once.\nIf it doesn't work, visit ${portalUrl}/login to request a new sign-in link.`,
     tags: [{ name: 'category', value: 'invite' }],
     trackClicks: false,
     trackOpens: false,

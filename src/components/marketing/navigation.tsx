@@ -33,6 +33,14 @@ export default function Navigation() {
         ))}
         <li>
           <Link
+            href="/portal"
+            className="border border-red text-red px-4 py-1.5 rounded text-sm font-[var(--font-sora)] font-medium no-underline tracking-wide hover:bg-red hover:text-white transition-colors"
+          >
+            Client Portal
+          </Link>
+        </li>
+        <li>
+          <Link
             href="#contact"
             className="bg-red text-white px-5 py-2 rounded text-sm font-[var(--font-sora)] font-semibold no-underline tracking-wide hover:bg-red2 transition-colors"
           >
@@ -63,6 +71,15 @@ export default function Navigation() {
                 </Link>
               </li>
             ))}
+            <li>
+              <Link
+                href="/portal"
+                onClick={() => setMobileOpen(false)}
+                className="font-[var(--font-sora)] text-sm font-medium text-red hover:text-white transition-colors no-underline tracking-wide"
+              >
+                Client Portal
+              </Link>
+            </li>
             <li>
               <Link
                 href="#contact"
