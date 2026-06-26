@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useSession, signOut } from 'next-auth/react';
 import { LogOut } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -19,9 +20,7 @@ export default function PortalHeader() {
       {/* Mobile: hamburger + logo */}
       <div className="flex items-center gap-3 md:hidden">
         <MobileNav />
-        <div className="flex size-7 items-center justify-center rounded-md bg-red text-xs font-bold text-white">
-          ET
-        </div>
+        <Image src="/logo.png" alt="ElphaTech Solutions" width={100} height={34} className="h-7 w-auto" />
       </div>
 
       {/* User section */}

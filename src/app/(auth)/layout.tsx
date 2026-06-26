@@ -1,3 +1,5 @@
+import Image from 'next/image';
+
 export default function AuthLayout({
   children,
 }: {
@@ -13,14 +15,7 @@ export default function AuthLayout({
         <div className="absolute bottom-24 -left-16 size-48 rounded-full border border-red/5" />
 
         <div>
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-red text-white text-sm font-bold">
-              ET
-            </div>
-            <span className="text-lg font-semibold tracking-tight text-white font-[var(--font-sora)]">
-              ElphaTech
-            </span>
-          </div>
+          <Image src="/logo.png" alt="ElphaTech Solutions" width={180} height={60} className="h-14 w-auto" />
         </div>
 
         <div className="relative z-10 max-w-md">
@@ -40,13 +35,8 @@ export default function AuthLayout({
       {/* Form panel */}
       <div className="flex flex-1 flex-col items-center justify-center p-6 lg:p-12">
         {/* Mobile logo */}
-        <div className="mb-8 flex items-center gap-3 lg:hidden">
-          <div className="flex size-10 items-center justify-center rounded-lg bg-red text-white text-sm font-bold">
-            ET
-          </div>
-          <span className="text-lg font-semibold tracking-tight text-white font-[var(--font-sora)]">
-            ElphaTech
-          </span>
+        <div className="mb-8 lg:hidden">
+          <Image src="/logo.png" alt="ElphaTech Solutions" width={160} height={54} className="h-12 w-auto" />
         </div>
         {children}
       </div>

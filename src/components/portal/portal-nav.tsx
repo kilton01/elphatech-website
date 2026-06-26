@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { LayoutDashboard, FolderKanban, Settings, Users, Inbox } from 'lucide-react';
@@ -26,11 +27,8 @@ export default function PortalNav() {
 
   return (
     <aside className="fixed left-0 top-0 hidden h-screen w-60 flex-col border-r border-brand bg-navy2 md:flex">
-      <div className="flex h-14 items-center gap-2.5 border-b border-brand px-5">
-        <div className="flex size-8 items-center justify-center rounded-lg bg-red text-sm font-bold text-white">
-          ET
-        </div>
-        <span className="text-sm font-semibold tracking-tight text-white">ElphaTech</span>
+      <div className="flex h-16 items-center justify-center border-b border-brand px-5">
+        <Image src="/logo.png" alt="ElphaTech Solutions" width={140} height={48} className="h-10 w-auto" />
       </div>
 
       <nav className="flex-1 space-y-0.5 p-3">
