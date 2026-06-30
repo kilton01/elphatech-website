@@ -126,6 +126,7 @@ export default function Contact() {
             />
             <select
               name="service"
+              aria-label="Service Needed"
               value={formData.service}
               onChange={handleChange}
               className="bg-white/[0.05] border border-brand rounded px-4 py-3 text-white text-sm font-[var(--font-inter)] outline-none focus:border-red transition-colors"

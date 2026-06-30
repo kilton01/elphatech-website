@@ -41,7 +41,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
       />
-      {children}
+      <main>{children}</main>
       <Toaster position="top-right" richColors closeButton />
     </div>
   );
