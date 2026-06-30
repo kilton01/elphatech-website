@@ -9,7 +9,8 @@ export async function GET(request: NextRequest) {
   const token = searchParams.get('token');
 
   if (!token) {
-    return NextResponse.redirect(new URL('/error?error=Verification', request.url));
+    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    return NextResponse.redirect(`${baseUrl}/error?error=Verification`);
   }
 
   const hashedToken = createHash('sha256')
@@ -23,13 +24,32 @@ export async function GET(request: NextRequest) {
     .then(rows => rows[0] ?? null);
 
   if (!record) {
-    return NextResponse.redirect(new URL('/error?error=Verification', request.url));
+    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    return NextResponse.redirect(`${baseUrl}/error?error=Verification`);
   }
 
-  const callbackUrl = new URL('/api/auth/callback/email', request.url);
+  const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+  const callbackUrl = new URL('/api/auth/callback/email', baseUrl);
   callbackUrl.searchParams.set('token', token);
   callbackUrl.searchParams.set('email', record.identifier);
-  callbackUrl.searchParams.set('callbackUrl', `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/portal`);
+  callbackUrl.searchParams.set('callbackUrl', `${baseUrl}/portal`);
 
-  return NextResponse.redirect(callbackUrl);
+  const redirectUrl = callbackUrl.toString();
+
+  return new NextResponse(
+    `<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="refresh" content="0;url=${redirectUrl}">
+<title>Signing you in...</title>
+</head>
+<body>
+<p>Signing you in...</p>
+<script>window.location.href="${redirectUrl}";</script>
+</body>
+</html>`,
+    {
+      headers: { 'Content-Type': 'text/html' },
+    },
+  );
 }
