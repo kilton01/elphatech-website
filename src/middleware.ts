@@ -42,7 +42,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid request origin' }, { status: 403 });
   }
 
-  const token = await getToken({ req: request, secret: process.env.AUTH_SECRET });
+  const secureCookie = request.url.startsWith('https://');
+  const token = await getToken({ req: request, secret: process.env.AUTH_SECRET, secureCookie });
 
   const isPortal = pathname.startsWith('/portal');
   const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/verify-request');
