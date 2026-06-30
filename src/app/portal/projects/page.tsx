@@ -2,10 +2,11 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { projects, projectMembers, tasks } from '@/lib/db/schema';
-import { eq, desc, and, sql } from 'drizzle-orm';
+import { desc, sql } from 'drizzle-orm';
 import Link from 'next/link';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import ProjectCard from '@/components/portal/project-card';
 
 export default async function ProjectsPage() {
   const session = await auth();
@@ -20,11 +21,11 @@ export default async function ProjectsPage() {
       description: projects.description,
       slug: projects.slug,
       memberCount: sql<number>`(
-        SELECT COUNT(*) FROM ${projectMembers}
+        SELECT COUNT(*)::int FROM ${projectMembers}
         WHERE ${projectMembers.projectId} = ${projects.id}
       )`,
       taskCount: sql<number>`(
-        SELECT COUNT(*) FROM ${tasks}
+        SELECT COUNT(*)::int FROM ${tasks}
         WHERE ${tasks.projectId} = ${projects.id}
       )`,
     })
@@ -65,24 +66,7 @@ export default async function ProjectsPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {projectsList.map((project) => (
-            <Link
-              key={project.id}
-              href={`/portal/projects/${project.slug}`}
-              className="group rounded-xl border border-brand bg-navy2 p-5 transition-colors hover:border-slate/30"
-            >
-              <h3 className="font-medium text-white group-hover:text-red">
-                {project.name}
-              </h3>
-              {project.description && (
-                <p className="mt-1 text-sm text-slate line-clamp-2">
-                  {project.description}
-                </p>
-              )}
-              <div className="mt-4 flex items-center gap-4 text-xs text-slate">
-                <span>{project.memberCount} member{project.memberCount !== 1 ? 's' : ''}</span>
-                <span>{project.taskCount} task{project.taskCount !== 1 ? 's' : ''}</span>
-              </div>
-            </Link>
+            <ProjectCard key={project.id} project={project} isAdmin={isAdmin} />
           ))}
         </div>
       )}

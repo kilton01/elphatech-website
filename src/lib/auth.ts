@@ -26,13 +26,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       maxAge: 24 * 60 * 60,
       sendVerificationRequest: async ({ identifier: email, url }) => {
         try {
-          const originalUrl = new URL(url);
-          const token = originalUrl.searchParams.get('token');
-          const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
-          const cleanUrl = token
-            ? `${baseUrl}/api/auth/verify?token=${token}`
-            : url;
-          await sendMagicLinkEmail(email, cleanUrl);
+          await sendMagicLinkEmail(email, url);
         } catch (err) {
           console.error('Failed to send magic link email:', err);
           throw new Error('Unable to send verification email. Please try again later.');

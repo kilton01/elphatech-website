@@ -50,5 +50,11 @@ export async function generateInviteLink(email: string, callbackUrl?: string): P
     expires,
   });
 
-  return `${baseUrl}/api/auth/verify?token=${token}`;
+  const params = new URLSearchParams({
+    callbackUrl: callbackUrl || `${baseUrl}/portal`,
+    token,
+    email: email.toLowerCase(),
+  });
+
+  return `${baseUrl}/api/auth/callback/email?${params.toString()}`;
 }

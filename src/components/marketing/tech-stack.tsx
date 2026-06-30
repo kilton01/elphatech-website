@@ -1,9 +1,11 @@
-const techs = [
-  'AWS', 'TypeScript', 'React', 'Next.js', 'Node.js', 'Python',
-  'PostgreSQL', 'Docker', 'Terraform', 'Redis',
-];
+type Technology = {
+  id: string;
+  name: string;
+};
 
-export default function TechStack() {
+export default function TechStack({ items }: { items: Technology[] }) {
+  if (items.length === 0) return null;
+
   return (
     <section className="py-20 px-[4%] bg-navy">
       <div className="max-w-6xl mx-auto">
@@ -20,12 +22,12 @@ export default function TechStack() {
         </div>
 
         <div className="flex flex-wrap justify-center gap-4 max-w-[800px] mx-auto">
-          {techs.map((tech) => (
+          {items.map((tech) => (
             <span
-              key={tech}
+              key={tech.id}
               className="bg-white/[0.05] border border-brand rounded-full px-[1.1rem] py-[0.45rem] font-[var(--font-sora)] text-xs font-medium text-slate transition-colors hover:text-white hover:border-red"
             >
-              {tech}
+              {tech.name}
             </span>
           ))}
         </div>

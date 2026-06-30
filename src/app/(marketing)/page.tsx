@@ -9,18 +9,35 @@ import TechStack from '@/components/marketing/tech-stack';
 import Contact from '@/components/marketing/contact';
 import Footer from '@/components/marketing/footer';
 import { Toaster } from 'sonner';
+import { db } from '@/lib/db';
+import { testimonials, caseStudies, technologies } from '@/lib/db/schema';
+import { asc, eq } from 'drizzle-orm';
 
-export default function MarketingPage() {
+export const revalidate = 60;
+
+async function getMarketingData() {
+  const [testimonialsData, caseStudiesData, technologiesData] = await Promise.all([
+    db.select().from(testimonials).where(eq(testimonials.status, 'published')).orderBy(asc(testimonials.position)),
+    db.select().from(caseStudies).where(eq(caseStudies.status, 'published')).orderBy(asc(caseStudies.position)),
+    db.select().from(technologies).where(eq(technologies.status, 'published')).orderBy(asc(technologies.position)),
+  ]);
+
+  return { testimonialsData, caseStudiesData, technologiesData };
+}
+
+export default async function MarketingPage() {
+  const { testimonialsData, caseStudiesData, technologiesData } = await getMarketingData();
+
   return (
     <>
       <Navigation />
       <Hero />
       <Services />
-      <Work />
+      <Work items={caseStudiesData} />
       <Process />
-      <Testimonials />
+      <Testimonials items={testimonialsData} />
       <AboutFounder />
-      <TechStack />
+      <TechStack items={technologiesData} />
       <Contact />
       <Footer />
       <Toaster

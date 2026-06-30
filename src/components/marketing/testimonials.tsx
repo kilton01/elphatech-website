@@ -1,13 +1,15 @@
-const testimonials = [
-  {
-    quote: "\"He took our hacked, broken website and turned it into something better than we ever had. Not only did he fix the security mess, he rebuilt the entire thing with a modern stack and added a mobile app feature we did not even ask for. We can finally run our business without worrying about getting hacked again.\"",
-    initials: 'CL',
-    name: 'Confidential — Logistics & Storage',
-    title: 'Client since 2026',
-  },
-];
+type Testimonial = {
+  id: string;
+  quote: string;
+  clientLabel: string;
+  industry: string | null;
+  clientSince: string | null;
+  rating: number;
+};
 
-export default function Testimonials() {
+export default function Testimonials({ items }: { items: Testimonial[] }) {
+  if (items.length === 0) return null;
+
   return (
     <section id="testimonials" className="py-20 px-[4%] bg-navy2">
       <div className="max-w-6xl mx-auto">
@@ -20,29 +22,37 @@ export default function Testimonials() {
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 max-w-[600px] mx-auto">
-          {testimonials.map((t) => (
+        <div className="grid grid-cols-1 max-w-[600px] mx-auto gap-7">
+          {items.map((t) => (
             <div
-              key={t.name}
+              key={t.id}
               className="bg-white/[0.04] border border-brand rounded-lg p-8"
             >
               <div className="text-red text-sm mb-4 tracking-wider">
-                ★★★★★
+                {'★'.repeat(t.rating)}
               </div>
               <blockquote className="text-white/85 text-sm leading-relaxed italic mb-5">
-                {t.quote}
+                &ldquo;{t.quote}&rdquo;
               </blockquote>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-red flex items-center justify-center font-[var(--font-sora)] font-bold text-sm text-white shrink-0">
-                  {t.initials}
+                  {t.clientLabel
+                    .split(/[\s—–-]+/)
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map((w) => w[0])
+                    .join('')
+                    .toUpperCase()}
                 </div>
                 <div>
                   <div className="font-[var(--font-sora)] font-semibold text-sm text-white">
-                    {t.name}
+                    {t.clientLabel}
                   </div>
-                  <div className="text-xs text-slate">
-                    {t.title}
-                  </div>
+                  {t.clientSince && (
+                    <div className="text-xs text-slate">
+                      Client since {t.clientSince}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

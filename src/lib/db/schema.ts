@@ -208,3 +208,36 @@ export const invoiceItems = pgTable('invoice_items', {
   position: integer('position').notNull().default(0),
   createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
 }, (t) => [index('invoice_items_invoice_id_idx').on(t.invoiceId)]);
+
+export const testimonials = pgTable('testimonials', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  quote: text('quote').notNull(),
+  clientLabel: text('client_label').notNull(),
+  industry: text('industry'),
+  clientSince: text('client_since'),
+  rating: integer('rating').notNull().default(5),
+  position: integer('position').notNull().default(0),
+  status: text('status', { enum: ['draft', 'published'] }).notNull().default('draft'),
+  createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { mode: 'date' }).notNull().defaultNow(),
+});
+
+export const caseStudies = pgTable('case_studies', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  category: text('category').notNull(),
+  title: text('title').notNull(),
+  description: text('description').notNull(),
+  outcome: text('outcome').notNull(),
+  position: integer('position').notNull().default(0),
+  status: text('status', { enum: ['draft', 'published'] }).notNull().default('draft'),
+  createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { mode: 'date' }).notNull().defaultNow(),
+});
+
+export const technologies = pgTable('technologies', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  name: text('name').notNull().unique(),
+  position: integer('position').notNull().default(0),
+  status: text('status', { enum: ['draft', 'published'] }).notNull().default('draft'),
+  createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+});

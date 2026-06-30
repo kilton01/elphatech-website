@@ -49,7 +49,7 @@ export default async function AuthErrorPage({
           </Button>
         </Link>
         <a
-          href="mailto:admin@elphatechsolutions.com"
+          href="mailto:info@elphatechsolutions.com"
           className="inline-block text-xs text-slate hover:text-white transition-colors"
         >
           Need help? Contact support

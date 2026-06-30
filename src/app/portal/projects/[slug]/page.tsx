@@ -5,6 +5,7 @@ import { eq, sql } from 'drizzle-orm';
 import { notFound } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, ListTodo, Calendar } from 'lucide-react';
+import ProjectEditButton from '@/components/portal/project-edit-button';
 
 export default async function ProjectOverviewPage({
   params,
@@ -15,11 +16,14 @@ export default async function ProjectOverviewPage({
   const session = await auth();
   if (!session?.user) notFound();
 
+  const isAdmin = session.user.role === 'admin';
+
   const project = await db
     .select({
       id: projects.id,
       name: projects.name,
       description: projects.description,
+      slug: projects.slug,
       memberCount: sql<number>`(
         SELECT COUNT(*)::int FROM project_members
         WHERE project_members.project_id = projects.id
@@ -38,9 +42,21 @@ export default async function ProjectOverviewPage({
 
   return (
     <div className="space-y-6">
-      {project.description && (
-        <p className="text-sm text-slate">{project.description}</p>
-      )}
+      <div className="flex items-center justify-between">
+        {project.description && (
+          <p className="text-sm text-slate flex-1">{project.description}</p>
+        )}
+        {isAdmin && (
+          <div className="shrink-0 ml-4">
+            <ProjectEditButton
+              projectId={project.id}
+              projectName={project.name}
+              projectDescription={project.description}
+              currentSlug={project.slug}
+            />
+          </div>
+        )}
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>

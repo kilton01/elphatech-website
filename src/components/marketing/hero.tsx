@@ -15,7 +15,7 @@ export default function Hero() {
           I Build Software That <span className="text-red">Scales Your Business</span>
         </h1>
         <p className="text-lg text-slate leading-relaxed mb-9 max-w-[560px]">
-          AWS engineer who cut a client&apos;s cloud bill from $24K to $6K/month and rebuilt a hacked website into a secure, modern platform. I design, build, and deploy production-grade software and cloud infrastructure — on time, on budget, and built to last.
+          Whether you need a secure web platform, cloud infrastructure that scales, or a product built from scratch — I bring the technical depth to get it done right, without the agency overhead.
         </p>
         <div className="flex gap-4 flex-wrap">
           <Link
