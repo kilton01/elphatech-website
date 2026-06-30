@@ -170,7 +170,9 @@ export default function KanbanBoard({
                 onClick={() => setViewMode(viewMode === 'milestone' ? 'kanban' : 'milestone')}
                 className={cn(
                   'gap-1.5 text-xs',
-                  viewMode === 'milestone' && 'bg-brand-muted text-red border-red/20',
+                  viewMode === 'milestone'
+                    ? 'bg-brand-muted text-red border-red/20'
+                    : 'text-white border-white/20 hover:bg-white/5',
                 )}
               >
                 <Layers className="size-3.5" />
@@ -182,7 +184,9 @@ export default function KanbanBoard({
                 onClick={() => setViewMode(viewMode === 'upnext' ? 'kanban' : 'upnext')}
                 className={cn(
                   'gap-1.5 text-xs',
-                  viewMode === 'upnext' && 'bg-brand-muted text-red border-red/20',
+                  viewMode === 'upnext'
+                    ? 'bg-brand-muted text-red border-red/20'
+                    : 'text-white border-white/20 hover:bg-white/5',
                 )}
               >
                 <CircleDot className="size-3.5" />
