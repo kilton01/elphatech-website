@@ -8,7 +8,6 @@ import AboutFounder from '@/components/marketing/about-founder';
 import TechStack from '@/components/marketing/tech-stack';
 import Contact from '@/components/marketing/contact';
 import Footer from '@/components/marketing/footer';
-import { Toaster } from 'sonner';
 import { db } from '@/lib/db';
 import { testimonials, caseStudies, technologies } from '@/lib/db/schema';
 import { asc, eq } from 'drizzle-orm';
@@ -40,11 +39,6 @@ export default async function MarketingPage() {
       <TechStack items={technologiesData} />
       <Contact />
       <Footer />
-      <Toaster
-        position="top-right"
-        richColors
-        closeButton
-      />
     </>
   );
 }

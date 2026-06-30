@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import NextAuth from 'next-auth';
 import { DrizzleAdapter } from '@auth/drizzle-adapter';
 import Email from 'next-auth/providers/email';
@@ -6,7 +7,7 @@ import * as schema from './db/schema';
 import { sendMagicLinkEmail, sendClientLoginNotificationEmail } from './bird';
 import { eq } from 'drizzle-orm';
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+const { handlers, auth: uncachedAuth, signIn, signOut } = NextAuth({
   trustHost: true,
   adapter: DrizzleAdapter(db, {
     usersTable: schema.users,
@@ -89,3 +90,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
 });
+
+export const auth = cache(uncachedAuth);
+export { handlers, signIn, signOut };

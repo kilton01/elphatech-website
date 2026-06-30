@@ -1,7 +1,7 @@
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { projects, projectMembers, users } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { notFound } from 'next/navigation';
 import MembersList from '@/components/portal/members-list';
 
@@ -23,19 +23,6 @@ export default async function MembersPage({
   const projectId = project.id;
 
   const isAdmin = session.user.role === 'admin';
-  if (!isAdmin) {
-    const member = await db
-      .select({ id: projectMembers.id })
-      .from(projectMembers)
-      .where(
-        and(
-          eq(projectMembers.projectId, projectId),
-          eq(projectMembers.userId, session.user.id),
-        ),
-      )
-      .then((rows) => rows[0]);
-    if (!member) notFound();
-  }
 
   const members = await db
     .select({

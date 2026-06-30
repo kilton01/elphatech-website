@@ -1,7 +1,7 @@
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { projects, activities, projectMembers, users } from '@/lib/db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { projects, activities, users } from '@/lib/db/schema';
+import { eq, desc } from 'drizzle-orm';
 import { notFound } from 'next/navigation';
 import { Activity as ActivityIcon, BadgeCheck, RotateCcw, Flag, Trash2, Receipt, CreditCard } from 'lucide-react';
 import { type ReactNode } from 'react';
@@ -66,22 +66,6 @@ export default async function ActivityPage({
   if (!project) notFound();
   const projectId = project.id;
 
-  const isAdmin = session.user.role === 'admin';
-  const isMember = isAdmin
-    ? true
-    : !!(await db
-        .select({ id: projectMembers.id })
-        .from(projectMembers)
-        .where(
-          and(
-            eq(projectMembers.projectId, projectId),
-            eq(projectMembers.userId, session.user.id),
-          ),
-        )
-        .then((rows) => rows[0]));
-
-  if (!isMember) notFound();
-
   const activityList = await db
     .select({
       id: activities.id,
@@ -94,7 +78,8 @@ export default async function ActivityPage({
     .from(activities)
     .leftJoin(users, eq(users.id, activities.userId))
     .where(eq(activities.projectId, projectId))
-    .orderBy(desc(activities.createdAt));
+    .orderBy(desc(activities.createdAt))
+    .limit(100);
 
   return (
     <div>

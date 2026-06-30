@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { projects, projectMembers, tasks } from '@/lib/db/schema';
-import { desc, sql } from 'drizzle-orm';
+import { desc, eq, sql } from 'drizzle-orm';
 import Link from 'next/link';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -20,16 +20,12 @@ export default async function ProjectsPage() {
       name: projects.name,
       description: projects.description,
       slug: projects.slug,
-      memberCount: sql<number>`(
-        SELECT COUNT(*)::int FROM ${projectMembers}
-        WHERE ${projectMembers.projectId} = ${projects.id}
-      )`,
-      taskCount: sql<number>`(
-        SELECT COUNT(*)::int FROM ${tasks}
-        WHERE ${tasks.projectId} = ${projects.id}
-      )`,
+      memberCount: sql<number>`count(DISTINCT ${projectMembers.id})::int`,
+      taskCount: sql<number>`count(DISTINCT ${tasks.id})::int`,
     })
     .from(projects)
+    .leftJoin(projectMembers, eq(projectMembers.projectId, projects.id))
+    .leftJoin(tasks, eq(tasks.projectId, projects.id))
     .where(
       isAdmin
         ? undefined
@@ -38,6 +34,7 @@ export default async function ProjectsPage() {
             WHERE ${projectMembers.userId} = ${session.user.id}
           )`,
     )
+    .groupBy(projects.id, projects.name, projects.description, projects.slug, projects.createdAt)
     .orderBy(desc(projects.createdAt));
 
   return (

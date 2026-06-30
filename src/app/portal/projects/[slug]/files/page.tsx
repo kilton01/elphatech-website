@@ -1,7 +1,7 @@
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { projects, files, projectMembers, users } from '@/lib/db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { projects, files, users } from '@/lib/db/schema';
+import { eq, desc } from 'drizzle-orm';
 import { notFound } from 'next/navigation';
 import { FileText } from 'lucide-react';
 import FileUpload from '@/components/portal/file-upload';
@@ -23,22 +23,6 @@ export default async function FilesPage({
     .then((rows) => rows[0]);
   if (!project) notFound();
   const projectId = project.id;
-
-  const isAdmin = session.user.role === 'admin';
-  const isMember = isAdmin
-    ? true
-    : !!(await db
-        .select({ id: projectMembers.id })
-        .from(projectMembers)
-        .where(
-          and(
-            eq(projectMembers.projectId, projectId),
-            eq(projectMembers.userId, session.user.id),
-          ),
-        )
-        .then((rows) => rows[0]));
-
-  if (!isMember) notFound();
 
   const fileList = await db
     .select({

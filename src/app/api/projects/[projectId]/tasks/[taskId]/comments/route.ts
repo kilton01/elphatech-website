@@ -6,9 +6,7 @@ import { eq, and, desc, inArray } from 'drizzle-orm';
 import { createBulkNotifications } from '@/lib/notifications';
 import { sendCommentNotificationEmail } from '@/lib/bird';
 
-async function checkMembership(projectId: string, userId: string) {
-  const session = await auth();
-  if (!session?.user) return false;
+async function checkMembership(projectId: string, userId: string, session: { user: { role: string } }) {
   if (session.user.role === 'admin') return true;
   const member = await db
     .select({ id: projectMembers.id })
@@ -33,7 +31,7 @@ export async function GET(
   }
 
   const { projectId, taskId } = await context.params;
-  const isMember = await checkMembership(projectId, session.user.id);
+  const isMember = await checkMembership(projectId, session.user.id, session);
   if (!isMember) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
@@ -66,7 +64,7 @@ export async function POST(
   }
 
   const { projectId, taskId } = await context.params;
-  const isMember = await checkMembership(projectId, session.user.id);
+  const isMember = await checkMembership(projectId, session.user.id, session);
   if (!isMember) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
@@ -96,26 +94,25 @@ export async function POST(
     })
     .returning();
 
-  const author = await db
-    .select({ name: users.name, email: users.email })
-    .from(users)
-    .where(eq(users.id, session.user.id))
-    .then((rows) => rows[0]);
+  // Batch independent reads
+  const [author, members, taskRecord] = await Promise.all([
+    db.select({ name: users.name, email: users.email })
+      .from(users)
+      .where(eq(users.id, session.user.id))
+      .then((rows) => rows[0]),
+    db.select({ userId: projectMembers.userId })
+      .from(projectMembers)
+      .where(eq(projectMembers.projectId, projectId)),
+    db.select({ title: tasks.title })
+      .from(tasks)
+      .where(eq(tasks.id, taskId))
+      .then((rows) => rows[0]),
+  ]);
 
   try {
-    const members = await db
-      .select({ userId: projectMembers.userId })
-      .from(projectMembers)
-      .where(eq(projectMembers.projectId, projectId));
     const recipientIds = members
       .map((m) => m.userId)
       .filter((id) => id !== session.user.id);
-
-    const taskRecord = await db
-      .select({ title: tasks.title })
-      .from(tasks)
-      .where(eq(tasks.id, taskId))
-      .then((rows) => rows[0]);
 
     const commenterName = author?.name || author?.email || 'Someone';
     const taskTitle = taskRecord?.title || 'a task';
@@ -128,16 +125,15 @@ export async function POST(
     });
 
     if (recipientIds.length > 0) {
-      const project = await db
-        .select({ name: projects.name })
-        .from(projects)
-        .where(eq(projects.id, projectId))
-        .then((rows) => rows[0]);
-
-      const recipientEmails = await db
-        .select({ email: users.email })
-        .from(users)
-        .where(inArray(users.id, recipientIds));
+      const [project, recipientEmails] = await Promise.all([
+        db.select({ name: projects.name })
+          .from(projects)
+          .where(eq(projects.id, projectId))
+          .then((rows) => rows[0]),
+        db.select({ email: users.email })
+          .from(users)
+          .where(inArray(users.id, recipientIds)),
+      ]);
 
       const preview = content.trim().slice(0, 120);
       await Promise.allSettled(

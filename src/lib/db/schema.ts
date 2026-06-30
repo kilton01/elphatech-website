@@ -176,7 +176,7 @@ export const contactSubmissions = pgTable('contact_submissions', {
   notes: text('notes'),
   respondedAt: timestamp('responded_at', { mode: 'date' }),
   createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
-});
+}, (t) => [index('contact_submissions_status_idx').on(t.status)]);
 
 export const invoiceStatusEnum = pgEnum('invoice_status', ['draft', 'sent', 'paid']);
 

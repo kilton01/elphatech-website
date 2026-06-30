@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Sora, Inter } from 'next/font/google';
 import { organizationSchema } from '@/lib/schema';
+import { Toaster } from 'sonner';
 
 const sora = Sora({ subsets: ['latin'], variable: '--font-sora' });
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
@@ -41,6 +42,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
       />
       {children}
+      <Toaster position="top-right" richColors closeButton />
     </div>
   );
 }

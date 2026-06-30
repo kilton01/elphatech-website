@@ -1,0 +1,559 @@
+'use client';
+
+import { useState, useRef, useCallback, useEffect, forwardRef } from 'react';
+import { useRouter } from 'next/navigation';
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverEvent,
+  DragOverlay,
+  DragStartEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCorners,
+  useDroppable,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  arrayMove,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { Plus, MoreHorizontal, BadgeCheck } from 'lucide-react';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+
+type MilestoneInfo = {
+  id: string;
+  title: string;
+  startDate: string;
+  endDate: string;
+};
+
+const COLUMNS = [
+  { id: 'todo', label: 'Todo', accent: 'bg-info' },
+  { id: 'in_progress', label: 'In Progress', accent: 'bg-warning' },
+  { id: 'review', label: 'Review', accent: 'bg-purple-500' },
+  { id: 'done', label: 'Done', accent: 'bg-success' },
+] as const;
+
+type ColumnId = (typeof COLUMNS)[number]['id'];
+
+type Task = {
+  id: string;
+  title: string;
+  description: string | null;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  assigneeName?: string | null;
+  status: string;
+  position: number;
+  phase: number;
+  isReady: boolean;
+  dueDate: string | null;
+  signedOffAt: string | null;
+  signedOffByName: string | null;
+  milestoneId: string | null;
+};
+
+type ColumnState = Record<ColumnId, Task[]>;
+
+function buildColumns(tasks: Task[]): ColumnState {
+  const state: ColumnState = { todo: [], in_progress: [], review: [], done: [] };
+  for (const task of tasks) {
+    const col = state[task.status as ColumnId];
+    if (col) col.push(task);
+  }
+  for (const col of Object.values(state)) {
+    col.sort((a, b) => a.position - b.position);
+  }
+  return state;
+}
+
+function findColumn(columns: ColumnState, id: string): ColumnId | null {
+  if (id in columns) return id as ColumnId;
+  for (const [colId, tasks] of Object.entries(columns)) {
+    if (tasks.some((t) => t.id === id)) return colId as ColumnId;
+  }
+  return null;
+}
+
+const priorityConfig = {
+  low: { label: 'Low', className: 'bg-green-500/10 text-green-500 border-green-500/20' },
+  medium: { label: 'Medium', className: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' },
+  high: { label: 'High', className: 'bg-orange-500/10 text-orange-500 border-orange-500/20' },
+  urgent: { label: 'Urgent', className: 'bg-red-500/10 text-red-500 border-red-500/20' },
+} as const;
+
+export default function KanbanDndView({
+  projectId,
+  tasks: serverTasks,
+  milestones = [],
+  columns,
+  setColumns,
+  inlineColumn,
+  setInlineColumn,
+  onTaskClick,
+}: {
+  projectId: string;
+  tasks: Task[];
+  milestones?: MilestoneInfo[];
+  columns: ColumnState;
+  setColumns: React.Dispatch<React.SetStateAction<ColumnState>>;
+  inlineColumn: string | null;
+  setInlineColumn: (col: string | null) => void;
+  onTaskClick: (task: Task) => void;
+}) {
+  const router = useRouter();
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const inlineInputRef = useRef<HTMLInputElement>(null);
+  const pendingPatchRef = useRef(0);
+  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastKnownGoodRef = useRef(serverTasks);
+  const prevServerRef = useRef(serverTasks);
+
+  const milestoneMap = Object.fromEntries(milestones.map((m) => [m.id, m]));
+
+  const columnsRef = useRef(columns);
+  useEffect(() => {
+    columnsRef.current = columns;
+  }, [columns]);
+
+  // Sync from server only when server data actually changes
+  useEffect(() => {
+    if (prevServerRef.current !== serverTasks) {
+      prevServerRef.current = serverTasks;
+      lastKnownGoodRef.current = serverTasks;
+      if (!activeId && pendingPatchRef.current === 0) {
+        setColumns(buildColumns(serverTasks));
+      }
+    }
+  }, [serverTasks, activeId, setColumns]);
+
+  const debouncedRefresh = useCallback(() => {
+    if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current);
+    refreshTimeoutRef.current = setTimeout(() => {
+      router.refresh();
+    }, 500);
+  }, [router]);
+
+  useEffect(() => {
+    return () => {
+      if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current);
+    };
+  }, []);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  );
+
+  const activeTask = activeId
+    ? Object.values(columns).flat().find((t) => t.id === activeId)
+    : null;
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  }, []);
+
+  const handleDragOver = useCallback((event: DragOverEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+
+    setColumns((prev) => {
+      const activeColId = findColumn(prev, active.id as string);
+      let overColId = findColumn(prev, over.id as string);
+
+      if (!overColId && (over.id as string) in prev) {
+        overColId = over.id as ColumnId;
+      }
+
+      if (!activeColId || !overColId || activeColId === overColId) return prev;
+
+      const activeItems = [...prev[activeColId]];
+      const overItems = [...prev[overColId]];
+      const activeIndex = activeItems.findIndex((t) => t.id === active.id);
+      if (activeIndex === -1) return prev;
+
+      const [movedTask] = activeItems.splice(activeIndex, 1);
+      const overIndex = overItems.findIndex((t) => t.id === over.id);
+      const insertIndex = overIndex === -1 ? overItems.length : overIndex;
+      overItems.splice(insertIndex, 0, { ...movedTask, status: overColId });
+
+      return { ...prev, [activeColId]: activeItems, [overColId]: overItems };
+    });
+  }, [setColumns]);
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveId(null);
+
+    if (!over) return;
+
+    const latestColumns = columnsRef.current;
+
+    const activeColId = findColumn(latestColumns, active.id as string);
+    let overColId = findColumn(latestColumns, over.id as string);
+    if (!overColId && (over.id as string) in latestColumns) {
+      overColId = over.id as ColumnId;
+    }
+
+    if (!activeColId || !overColId) return;
+
+    if (activeColId === overColId) {
+      const items = latestColumns[activeColId];
+      const oldIndex = items.findIndex((t) => t.id === active.id);
+      const newIndex = items.findIndex((t) => t.id === over.id);
+
+      if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+        setColumns((prev) => ({
+          ...prev,
+          [activeColId]: arrayMove(prev[activeColId], oldIndex, newIndex),
+        }));
+      }
+    }
+
+    const currentColumns = columnsRef.current;
+    const finalCol = findColumn(currentColumns, active.id as string);
+    if (!finalCol) return;
+    const finalItems = currentColumns[finalCol];
+    const finalIndex = finalItems.findIndex((t) => t.id === active.id);
+    const task = finalItems[finalIndex];
+    if (!task) return;
+
+    const originalTask = serverTasks.find((t) => t.id === task.id);
+    const statusChanged = originalTask?.status !== finalCol;
+    const positionChanged = finalIndex !== originalTask?.position;
+
+    if (!statusChanged && !positionChanged) return;
+
+    pendingPatchRef.current += 1;
+    const thisPatch = pendingPatchRef.current;
+
+    fetch(`/api/projects/${projectId}/tasks/${task.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: finalCol, position: finalIndex }),
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || 'Failed to update task');
+        }
+        if (thisPatch === pendingPatchRef.current) {
+          debouncedRefresh();
+        }
+      })
+      .catch((err) => {
+        if (thisPatch === pendingPatchRef.current) {
+          setColumns(buildColumns(lastKnownGoodRef.current));
+          toast.error(err.message || 'Failed to move task. Please try again.');
+        }
+      })
+      .finally(() => {
+        if (thisPatch === pendingPatchRef.current) {
+          pendingPatchRef.current = 0;
+        }
+      });
+  }, [serverTasks, projectId, debouncedRefresh, setColumns]);
+
+  async function handleInlineCreate(columnId: string, taskTitle: string) {
+    if (!taskTitle.trim()) {
+      setInlineColumn(null);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/projects/${projectId}/tasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: taskTitle.trim(),
+          status: columnId,
+          priority: 'medium',
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to create task');
+      toast.success('Task created');
+      setInlineColumn(null);
+      router.refresh();
+    } catch {
+      toast.error('Failed to create task');
+    }
+  }
+
+  return (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCorners}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {COLUMNS.map((col) => (
+          <DroppableColumn
+            key={col.id}
+            id={col.id}
+            label={col.label}
+            accent={col.accent}
+            tasks={columns[col.id]}
+            activeId={activeId}
+            milestoneMap={milestoneMap}
+            inlineColumn={inlineColumn}
+            inlineInputRef={inlineInputRef}
+            onInlineOpen={() => {
+              setInlineColumn(col.id);
+              setTimeout(() => inlineInputRef.current?.focus(), 0);
+            }}
+            onInlineCreate={(value) => handleInlineCreate(col.id, value)}
+            onInlineCancel={() => setInlineColumn(null)}
+            onTaskClick={onTaskClick}
+          />
+        ))}
+      </div>
+
+      <DragOverlay dropAnimation={{ duration: 200, easing: 'ease' }}>
+        {activeTask && (
+          <div className="rotate-1 scale-105 rounded-lg border border-brand-accent bg-surface-2 p-3 text-sm shadow-brand-md opacity-95">
+            <p className="font-medium text-white">{activeTask.title}</p>
+            <Badge variant="outline" className={cn('mt-2 text-[10px]', priorityConfig[activeTask.priority].className)}>
+              {priorityConfig[activeTask.priority].label}
+            </Badge>
+          </div>
+        )}
+      </DragOverlay>
+    </DndContext>
+  );
+}
+
+// --- Droppable Column ---
+
+function DroppableColumn({
+  id,
+  label,
+  accent,
+  tasks,
+  activeId,
+  milestoneMap,
+  inlineColumn,
+  inlineInputRef,
+  onInlineOpen,
+  onInlineCreate,
+  onInlineCancel,
+  onTaskClick,
+}: {
+  id: string;
+  label: string;
+  accent: string;
+  tasks: Task[];
+  activeId: string | null;
+  milestoneMap: Record<string, MilestoneInfo>;
+  inlineColumn: string | null;
+  inlineInputRef: React.RefObject<HTMLInputElement | null>;
+  onInlineOpen: () => void;
+  onInlineCreate: (value: string) => void;
+  onInlineCancel: () => void;
+  onTaskClick: (task: Task) => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        'rounded-xl bg-surface-1 p-3 transition-colors duration-200',
+        isOver && 'bg-surface-2 ring-1 ring-brand-accent/50',
+      )}
+    >
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className={`h-4 w-1 rounded-full ${accent}`} />
+          <h3 className="text-sm font-semibold text-white">{label}</h3>
+          <span className="text-xs text-tertiary">({tasks.length})</span>
+        </div>
+        <button
+          onClick={onInlineOpen}
+          className="flex size-6 items-center justify-center rounded-md text-tertiary transition-all hover:bg-white/5 hover:text-white"
+        >
+          <Plus className="size-3.5" />
+        </button>
+      </div>
+
+      <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+        <div className="min-h-20 space-y-2">
+          {inlineColumn === id && (
+            <InlineTaskInput
+              ref={inlineInputRef}
+              onSubmit={onInlineCreate}
+              onCancel={onInlineCancel}
+            />
+          )}
+
+          {tasks.length === 0 && inlineColumn !== id && (
+            <div className={cn(
+              'rounded-lg border border-dashed py-8 text-center transition-colors',
+              isOver ? 'border-brand-accent bg-brand-subtle' : 'border-subtle',
+            )}>
+              <p className="text-xs text-tertiary">Drop tasks here</p>
+            </div>
+          )}
+
+          {tasks.map((task) => (
+            <SortableTaskCard
+              key={task.id}
+              task={task}
+              isDragActive={activeId === task.id}
+              milestoneTitle={task.milestoneId ? milestoneMap[task.milestoneId]?.title : undefined}
+              onClick={() => onTaskClick(task)}
+            />
+          ))}
+        </div>
+      </SortableContext>
+    </div>
+  );
+}
+
+// --- Sortable Task Card ---
+
+function SortableTaskCard({
+  task,
+  isDragActive,
+  milestoneTitle,
+  onClick,
+}: {
+  task: Task;
+  isDragActive: boolean;
+  milestoneTitle?: string;
+  onClick: () => void;
+}) {
+  const isSignedOff = !!task.signedOffAt;
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: task.id, disabled: isSignedOff });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  const config = priorityConfig[task.priority];
+  const initials = task.assigneeName
+    ? task.assigneeName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
+    : null;
+
+  const dueDateObj = task.dueDate ? new Date(task.dueDate) : null;
+  const isOverdue = dueDateObj ? dueDateObj < new Date() : false;
+  const isDueSoon = dueDateObj && !isOverdue
+    ? dueDateObj.getTime() - Date.now() < 3 * 24 * 60 * 60 * 1000
+    : false;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...(isSignedOff ? {} : listeners)}
+      onClick={(e) => {
+        if (!isDragging) onClick();
+      }}
+      className={cn(
+        'group rounded-lg border border-subtle bg-surface-2 p-3 text-sm shadow-brand-xs transition-all',
+        isSignedOff
+          ? 'cursor-pointer opacity-80'
+          : 'cursor-grab hover:border-strong hover:shadow-brand-sm hover:-translate-y-0.5 active:cursor-grabbing',
+        isDragging && 'opacity-40 scale-95',
+      )}
+    >
+      <div className="mb-2 flex items-start justify-between gap-2">
+        <p className="font-medium leading-snug text-white">{task.title}</p>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {isSignedOff && (
+            <span title={`Signed off by ${task.signedOffByName}`}>
+              <BadgeCheck className="size-4 text-success" />
+            </span>
+          )}
+          {initials && (
+            <span className="flex size-6 items-center justify-center rounded-full bg-brand-muted text-[10px] font-medium text-red">
+              {initials}
+            </span>
+          )}
+          <MoreHorizontal className="size-4 text-tertiary opacity-0 transition-opacity group-hover:opacity-100" />
+        </div>
+      </div>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <Badge variant="outline" className={cn('text-[10px] shrink-0', config.className)}>
+            {config.label}
+          </Badge>
+          {milestoneTitle && (
+            <span className="truncate max-w-[80px] rounded bg-brand-subtle px-1.5 py-0.5 text-[9px] font-medium text-slate">
+              {milestoneTitle.length > 20 ? milestoneTitle.slice(0, 20) + '...' : milestoneTitle}
+            </span>
+          )}
+        </div>
+        {dueDateObj && (
+          <span className={cn(
+            'text-[10px] font-medium shrink-0',
+            isOverdue ? 'text-danger' : isDueSoon ? 'text-warning' : 'text-tertiary',
+          )}>
+            {formatShortDate(dueDateObj)}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// --- Inline Task Input ---
+
+const InlineTaskInput = forwardRef<
+  HTMLInputElement,
+  { onSubmit: (value: string) => void; onCancel: () => void }
+>(function InlineTaskInput({ onSubmit, onCancel }, ref) {
+  const [value, setValue] = useState('');
+
+  return (
+    <div className="rounded-lg border border-brand-accent bg-surface-2 p-2">
+      <input
+        ref={ref}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && value.trim()) {
+            onSubmit(value);
+            setValue('');
+          }
+          if (e.key === 'Escape') onCancel();
+        }}
+        onBlur={() => {
+          if (value.trim()) {
+            onSubmit(value);
+          } else {
+            onCancel();
+          }
+        }}
+        placeholder="Task title... (Enter to create)"
+        className="w-full bg-transparent text-sm text-white placeholder:text-tertiary outline-none"
+        maxLength={200}
+      />
+    </div>
+  );
+});
+
+// --- Utils ---
+
+function formatShortDate(date: Date): string {
+  const now = new Date();
+  const diffDays = Math.ceil((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) return `${Math.abs(diffDays)}d overdue`;
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Tomorrow';
+  if (diffDays <= 7) return `${diffDays}d`;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}

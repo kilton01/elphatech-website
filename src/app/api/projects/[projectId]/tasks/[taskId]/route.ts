@@ -6,9 +6,7 @@ import { eq, and } from 'drizzle-orm';
 import { createNotification, createBulkNotifications } from '@/lib/notifications';
 import { sendTaskAssignedEmail } from '@/lib/bird';
 
-async function checkMembership(projectId: string, userId: string) {
-  const session = await auth();
-  if (!session?.user) return false;
+async function checkMembership(projectId: string, userId: string, session: { user: { role: string } }) {
   if (session.user.role === 'admin') return true;
   const member = await db
     .select({ id: projectMembers.id })
@@ -33,7 +31,7 @@ export async function PATCH(
   }
 
   const { projectId, taskId } = await context.params;
-  const isMember = await checkMembership(projectId, session.user.id);
+  const isMember = await checkMembership(projectId, session.user.id, session);
   if (!isMember) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
