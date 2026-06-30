@@ -5,6 +5,14 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { UserPlus, X, Mail, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -30,6 +38,8 @@ export default function MembersList({
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [inviting, setInviting] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [memberToRemove, setMemberToRemove] = useState<Member | null>(null);
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
@@ -55,12 +65,12 @@ export default function MembersList({
     }
   }
 
-  async function handleRemove(memberId: string) {
-    const confirmed = window.confirm('Remove this member from the project?');
-    if (!confirmed) return;
+  async function handleRemove() {
+    if (!memberToRemove) return;
+    setRemoving(true);
     try {
       const res = await fetch(
-        `/api/projects/${projectId}/members/${memberId}`,
+        `/api/projects/${projectId}/members/${memberToRemove.id}`,
         { method: 'DELETE' },
       );
       if (!res.ok) {
@@ -68,9 +78,12 @@ export default function MembersList({
         throw new Error(err.error || 'Failed to remove');
       }
       toast.success('Member removed');
+      setMemberToRemove(null);
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to remove');
+    } finally {
+      setRemoving(false);
     }
   }
 
@@ -159,7 +172,7 @@ export default function MembersList({
                   </Badge>
                   {isAdmin && member.role !== 'admin' && (
                     <button
-                      onClick={() => handleRemove(member.id)}
+                      onClick={() => setMemberToRemove(member)}
                       className="flex size-7 items-center justify-center rounded-md text-tertiary transition-colors hover:bg-danger/10 hover:text-danger"
                     >
                       <X className="size-3.5" />
@@ -171,6 +184,38 @@ export default function MembersList({
           </div>
         )}
       </div>
+      <Dialog open={!!memberToRemove} onOpenChange={(open) => { if (!open) setMemberToRemove(null); }}>
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>Remove member</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove{' '}
+              <span className="font-medium text-white">
+                {memberToRemove?.name ?? memberToRemove?.email}
+              </span>{' '}
+              from this project? They will lose access immediately.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setMemberToRemove(null)}
+              disabled={removing}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="bg-danger text-white hover:bg-danger/90"
+              onClick={handleRemove}
+              disabled={removing}
+            >
+              {removing ? 'Removing...' : 'Remove'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
