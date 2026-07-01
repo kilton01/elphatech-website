@@ -28,7 +28,7 @@ export default function ProjectError({
         </p>
       </div>
       <div className="flex gap-3">
-        <Button onClick={reset} variant="outline" className="border-brand text-slate hover:text-white">
+        <Button onClick={reset} variant="outline" className="border-white/30 text-white hover:bg-white/10">
           Try again
         </Button>
         <Link href="/portal/projects">

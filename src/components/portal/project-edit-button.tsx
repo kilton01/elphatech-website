@@ -59,7 +59,7 @@ export default function ProjectEditButton({ projectId, projectName, projectDescr
 
   return (
     <>
-      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)} className="text-white border-white/30 hover:bg-white/10">
         <Pencil className="size-4 mr-1.5" />
         Edit
       </Button>

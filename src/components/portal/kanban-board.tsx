@@ -172,7 +172,7 @@ export default function KanbanBoard({
                   'gap-1.5 text-xs',
                   viewMode === 'milestone'
                     ? 'bg-brand-muted text-red border-red/20'
-                    : 'text-white border-white/20 hover:bg-white/5',
+                    : 'text-white border-white/30 hover:bg-white/10',
                 )}
               >
                 <Layers className="size-3.5" />
@@ -186,7 +186,7 @@ export default function KanbanBoard({
                   'gap-1.5 text-xs',
                   viewMode === 'upnext'
                     ? 'bg-brand-muted text-red border-red/20'
-                    : 'text-white border-white/20 hover:bg-white/5',
+                    : 'text-white border-white/30 hover:bg-white/10',
                 )}
               >
                 <CircleDot className="size-3.5" />

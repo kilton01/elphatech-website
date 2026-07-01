@@ -111,6 +111,7 @@ export default function MarketingView() {
           <Button
             variant="outline"
             size="sm"
+            className="text-white border-white/30 hover:bg-white/10"
             onClick={handleRevalidate}
             disabled={revalidating}
           >
@@ -228,7 +229,7 @@ function ItemCard({ children, status, position }: { children: React.ReactNode; s
         ? 'border-[var(--border)] bg-[var(--surface-1)]'
         : 'border-dashed border-[var(--border)] bg-[var(--surface-0)]/50 opacity-75',
     )}>
-      <div className="flex items-center gap-2 text-[var(--text-tertiary)]">
+      <div className="flex items-center gap-2 text-slate">
         <GripVertical className="size-4" />
         <span className="text-xs font-mono w-5 text-center">{position}</span>
       </div>
@@ -251,16 +252,16 @@ function ItemActions({ status, onPublish, onEdit, onDelete }: {
           'p-1.5 rounded-md transition-colors',
           status === 'published'
             ? 'text-green-400 hover:bg-green-500/10'
-            : 'text-[var(--text-tertiary)] hover:bg-white/5',
+            : 'text-slate hover:bg-white/10',
         )}
         title={status === 'published' ? 'Unpublish' : 'Publish'}
       >
         {status === 'published' ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
       </button>
-      <button onClick={onEdit} className="p-1.5 rounded-md text-[var(--text-tertiary)] hover:bg-white/5 transition-colors" title="Edit">
+      <button onClick={onEdit} className="p-1.5 rounded-md text-slate hover:bg-white/10 hover:text-white transition-colors" title="Edit">
         <Pencil className="size-4" />
       </button>
-      <button onClick={onDelete} className="p-1.5 rounded-md text-[var(--text-tertiary)] hover:bg-red-500/10 hover:text-red-400 transition-colors" title="Delete">
+      <button onClick={onDelete} className="p-1.5 rounded-md text-slate hover:bg-red-500/10 hover:text-red-400 transition-colors" title="Delete">
         <Trash2 className="size-4" />
       </button>
     </div>

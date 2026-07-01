@@ -238,6 +238,7 @@ export default function ContactsView() {
           <Button
             variant="outline"
             size="sm"
+            className="text-white border-white/30 hover:bg-white/10"
             disabled={page <= 1}
             onClick={() => setPage((p) => p - 1)}
           >
@@ -249,6 +250,7 @@ export default function ContactsView() {
           <Button
             variant="outline"
             size="sm"
+            className="text-white border-white/30 hover:bg-white/10"
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >

@@ -271,7 +271,7 @@ export default function InvoiceModal({
           </div>
 
           <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="ghost" onClick={onClose} className="text-slate">
+            <Button type="button" variant="ghost" onClick={onClose} className="text-white hover:bg-white/10">
               Cancel
             </Button>
             <Button

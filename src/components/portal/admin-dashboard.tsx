@@ -223,12 +223,12 @@ export default function AdminDashboard({ userName }: { userName: string }) {
           </Button>
         </Link>
         <Link href="/portal/admin/users">
-          <Button size="sm" className="gap-1.5 text-xs bg-white/10 hover:bg-white/15 text-white border border-white/20">
+          <Button size="sm" className="gap-1.5 text-xs bg-white/10 hover:bg-white/20 text-white border border-white/30">
             <UserCog className="size-3.5" />Manage Users
           </Button>
         </Link>
         <Link href="/portal/projects">
-          <Button size="sm" className="gap-1.5 text-xs bg-white/10 hover:bg-white/15 text-white border border-white/20">
+          <Button size="sm" className="gap-1.5 text-xs bg-white/10 hover:bg-white/20 text-white border border-white/30">
             <Eye className="size-3.5" />View All Projects
           </Button>
         </Link>
