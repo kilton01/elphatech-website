@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, ListTodo, Calendar } from 'lucide-react';
 import ProjectEditButton from '@/components/portal/project-edit-button';
 import ProjectFeedback from '@/components/portal/project-feedback';
+import ClientActions from '@/components/portal/client-actions';
 
 export default async function ProjectOverviewPage({
   params,
@@ -112,6 +113,8 @@ export default async function ProjectOverviewPage({
           </CardContent>
         </Card>
       </div>
+
+      <ClientActions projectId={project.id} isAdmin={isAdmin} />
 
       <ProjectFeedback
         projectId={project.id}

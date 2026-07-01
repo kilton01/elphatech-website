@@ -146,6 +146,8 @@ export const notificationTypeEnum = pgEnum('notification_type', [
   'status_changed',
   'member_invited',
   'invoice_sent',
+  'client_action_completed',
+  'client_action_created',
 ]);
 
 export const notifications = pgTable('notifications', {
@@ -276,4 +278,18 @@ export const testerReports = pgTable('tester_reports', {
 }, (t) => [
   index('tester_reports_project_idx').on(t.projectId),
   index('tester_reports_status_idx').on(t.status),
+]);
+
+export const clientActions = pgTable('client_actions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  description: text('description'),
+  isCompleted: boolean('is_completed').default(false).notNull(),
+  completedAt: timestamp('completed_at', { mode: 'date' }),
+  completedById: uuid('completed_by_id').references(() => users.id, { onDelete: 'set null' }),
+  position: integer('position').default(0).notNull(),
+  createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+}, (t) => [
+  index('client_actions_project_idx').on(t.projectId, t.isCompleted),
 ]);

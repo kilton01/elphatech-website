@@ -1,7 +1,7 @@
 import { db } from './db';
 import { notifications } from './db/schema';
 
-type NotificationType = 'task_assigned' | 'comment_added' | 'file_uploaded' | 'status_changed' | 'member_invited' | 'invoice_sent';
+type NotificationType = 'task_assigned' | 'comment_added' | 'file_uploaded' | 'status_changed' | 'member_invited' | 'invoice_sent' | 'client_action_completed' | 'client_action_created';
 
 export async function createNotification({
   userId,
