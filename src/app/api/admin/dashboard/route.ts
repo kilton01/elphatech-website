@@ -14,8 +14,10 @@ import {
   invoices,
   invoiceItems,
   contactSubmissions,
+  testerReports,
+  feedback,
 } from '@/lib/db/schema';
-import { eq, and, ne, sql, desc, isNull, inArray, lt, count, sum } from 'drizzle-orm';
+import { eq, and, ne, sql, desc, isNull, inArray, lt, gte, count, sum } from 'drizzle-orm';
 
 export async function GET() {
   const session = await auth();
@@ -36,6 +38,8 @@ export async function GET() {
     unreadResult,
     outstandingInvoicesResult,
     newContactsResult,
+    openReportsResult,
+    newFeedbackResult,
   ] = await Promise.all([
     db.select({ count: sql<number>`count(*)::int` }).from(projects),
 
@@ -72,6 +76,14 @@ export async function GET() {
     db.select({ count: sql<number>`count(*)::int` })
       .from(contactSubmissions)
       .where(eq(contactSubmissions.status, 'new')),
+
+    db.select({ count: sql<number>`count(*)::int` })
+      .from(testerReports)
+      .where(eq(testerReports.status, 'open')),
+
+    db.select({ count: sql<number>`count(*)::int` })
+      .from(feedback)
+      .where(gte(feedback.createdAt, new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000))),
   ]);
 
   const totalProjects = totalProjectsResult[0]?.count ?? 0;
@@ -83,6 +95,8 @@ export async function GET() {
   const outstandingInvoices = outstandingInvoicesResult[0]?.count ?? 0;
   const outstandingInvoiceTotal = Number(outstandingInvoicesResult[0]?.total ?? 0);
   const newContacts = newContactsResult[0]?.count ?? 0;
+  const openReports = openReportsResult[0]?.count ?? 0;
+  const newFeedback = newFeedbackResult[0]?.count ?? 0;
 
   // --- Per-project health: bulk queries instead of N+1 ---
   const projectRows = await db
@@ -348,6 +362,8 @@ export async function GET() {
       outstandingInvoices,
       outstandingInvoiceTotal,
       newContacts,
+      openReports,
+      newFeedback,
     },
     projects: projectData,
     clients: clientData,

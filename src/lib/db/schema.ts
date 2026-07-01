@@ -59,7 +59,8 @@ export const projectMembers = pgTable('project_members', {
   id: uuid('id').defaultRandom().primaryKey(),
   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  role: roleEnum('role').default('client').notNull(),
+  role: text('role', { enum: ['admin', 'client', 'tester'] }).notNull().default('client'),
+  canTest: boolean('can_test').notNull().default(false),
   createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
 }, (t) => [uniqueIndex('project_members_project_user_idx').on(t.projectId, t.userId)]);
 
@@ -241,3 +242,38 @@ export const technologies = pgTable('technologies', {
   status: text('status', { enum: ['draft', 'published'] }).notNull().default('draft'),
   createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
 });
+
+export const feedback = pgTable('feedback', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  fileId: uuid('file_id').references(() => files.id, { onDelete: 'cascade' }),
+  authorId: uuid('author_id').references(() => users.id, { onDelete: 'set null' }),
+  authorName: text('author_name'),
+  type: text('type', { enum: ['client_feedback'] }).notNull(),
+  rating: integer('rating'),
+  comment: text('comment').notNull(),
+  createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { mode: 'date' }).notNull().defaultNow(),
+}, (t) => [
+  index('feedback_project_idx').on(t.projectId),
+  index('feedback_file_idx').on(t.fileId),
+]);
+
+export const testerReports = pgTable('tester_reports', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  fileId: uuid('file_id').references(() => files.id, { onDelete: 'cascade' }),
+  reporterId: uuid('reporter_id').references(() => users.id, { onDelete: 'set null' }),
+  reporterName: text('reporter_name'),
+  type: text('type', { enum: ['bug', 'enhancement'] }).notNull(),
+  title: text('title').notNull(),
+  description: text('description').notNull(),
+  severity: text('severity', { enum: ['low', 'medium', 'high', 'critical'] }).notNull().default('medium'),
+  status: text('status', { enum: ['open', 'acknowledged', 'converted', 'dismissed'] }).notNull().default('open'),
+  convertedTaskId: uuid('converted_task_id').references(() => tasks.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { mode: 'date' }).notNull().defaultNow(),
+}, (t) => [
+  index('tester_reports_project_idx').on(t.projectId),
+  index('tester_reports_status_idx').on(t.status),
+]);

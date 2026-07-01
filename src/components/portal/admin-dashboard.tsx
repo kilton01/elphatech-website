@@ -15,6 +15,8 @@ import {
   Eye,
   Receipt,
   Inbox,
+  Bug,
+  MessageSquare,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -35,6 +37,8 @@ type Summary = {
   outstandingInvoices: number;
   outstandingInvoiceTotal: number;
   newContacts: number;
+  openReports: number;
+  newFeedback: number;
 };
 
 type Project = {
@@ -213,6 +217,8 @@ export default function AdminDashboard({ userName }: { userName: string }) {
         <Link href="/portal/admin/contacts?status=new">
           <SummaryCard icon={<Inbox className="size-4" />} label="New Enquiries" value={summary.newContacts} elevated={summary.newContacts > 0} color={summary.newContacts > 0 ? 'text-[var(--brand-primary)]' : 'text-slate'} />
         </Link>
+        <SummaryCard icon={<Bug className="size-4" />} label="Open Reports" value={summary.openReports} elevated={summary.openReports > 0} color={summary.openReports > 0 ? 'text-danger' : 'text-slate'} />
+        <SummaryCard icon={<MessageSquare className="size-4" />} label="New Feedback" value={summary.newFeedback} elevated={summary.newFeedback > 0} color={summary.newFeedback > 0 ? 'text-[var(--brand-primary)]' : 'text-slate'} />
       </div>
 
       {/* Step 6: Quick Actions */}

@@ -41,6 +41,7 @@ export async function GET(
       id: projectMembers.id,
       userId: projectMembers.userId,
       role: projectMembers.role,
+      canTest: projectMembers.canTest,
       createdAt: projectMembers.createdAt,
       name: users.name,
       email: users.email,
@@ -63,14 +64,19 @@ export async function POST(
 
   const { projectId } = await context.params;
   const body = await request.json();
-  const emailSchema = z.string().email('Valid email is required');
-  const parsed = emailSchema.safeParse(body?.email);
+
+  const inviteSchema = z.object({
+    email: z.string().email('Valid email is required'),
+    role: z.enum(['admin', 'client', 'tester']).optional().default('client'),
+    canTest: z.boolean().optional().default(false),
+  });
+  const parsed = inviteSchema.safeParse(body);
 
   if (!parsed.success) {
     return NextResponse.json({ error: 'Valid email is required' }, { status: 400 });
   }
 
-  const email = parsed.data;
+  const { email, role: memberRole, canTest } = parsed.data;
 
   let user = await db
     .select({ id: users.id })
@@ -109,7 +115,8 @@ export async function POST(
     .values({
       projectId,
       userId: user.id,
-      role: 'client',
+      role: memberRole,
+      canTest,
     })
     .returning();
 

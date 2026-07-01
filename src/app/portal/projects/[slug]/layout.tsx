@@ -27,9 +27,11 @@ export default async function ProjectLayout({
   if (!project) notFound();
 
   const isAdmin = session.user.role === 'admin';
+  let showReports = isAdmin;
+
   if (!isAdmin) {
     const member = await db
-      .select({ id: projectMembers.id })
+      .select({ id: projectMembers.id, role: projectMembers.role, canTest: projectMembers.canTest })
       .from(projectMembers)
       .where(
         and(
@@ -39,6 +41,7 @@ export default async function ProjectLayout({
       )
       .then((rows) => rows[0]);
     if (!member) notFound();
+    showReports = member.role === 'tester' || member.canTest;
   }
 
   return (
@@ -54,7 +57,7 @@ export default async function ProjectLayout({
           <h1 className="text-xl font-semibold text-white">{project.name}</h1>
         </div>
       </div>
-      <ProjectTabs projectSlug={project.slug}>{children}</ProjectTabs>
+      <ProjectTabs projectSlug={project.slug} showReports={showReports}>{children}</ProjectTabs>
     </div>
   );
 }

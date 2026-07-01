@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
-const tabs = [
+const baseTabs = [
   { href: '', label: 'Overview' },
   { href: '/tasks', label: 'Tasks' },
   { href: '/milestones', label: 'Milestones' },
@@ -16,13 +16,19 @@ const tabs = [
 
 export default function ProjectTabs({
   projectSlug,
+  showReports = false,
   children,
 }: {
   projectSlug: string;
+  showReports?: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
   const base = `/portal/projects/${projectSlug}`;
+
+  const tabs = showReports
+    ? [...baseTabs.slice(0, 4), { href: '/reports', label: 'Reports' }, ...baseTabs.slice(4)]
+    : baseTabs;
 
   return (
     <div className="space-y-6">

@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { projects, activities, users } from '@/lib/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { notFound } from 'next/navigation';
-import { Activity as ActivityIcon, BadgeCheck, RotateCcw, Flag, Trash2, Receipt, CreditCard } from 'lucide-react';
+import { Activity as ActivityIcon, BadgeCheck, RotateCcw, Flag, Trash2, Receipt, CreditCard, Star, Bug, ArrowRight } from 'lucide-react';
 import { type ReactNode } from 'react';
 
 function getActivityDisplay(
@@ -40,6 +40,26 @@ function getActivityDisplay(
       return {
         icon: <CreditCard className="size-3.5 text-success" />,
         label: `Invoice ${meta?.invoiceNumber || ''} marked as paid`,
+      };
+    case 'feedback_submitted':
+      return {
+        icon: <Star className="size-3.5 text-warning" />,
+        label: 'Left feedback',
+      };
+    case 'report_submitted':
+      return {
+        icon: <Bug className="size-3.5 text-danger" />,
+        label: `Reported a ${meta?.severity || ''} ${meta?.type || 'issue'}: ${meta?.title || ''}`,
+      };
+    case 'report_converted':
+      return {
+        icon: <ArrowRight className="size-3.5 text-success" />,
+        label: `Report converted to task: ${meta?.reportTitle || ''}`,
+      };
+    case 'project_updated':
+      return {
+        icon: <ActivityIcon className="size-3.5 text-info" />,
+        label: 'Updated project details',
       };
     default:
       return {

@@ -1,11 +1,12 @@
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { projects, projectMembers, tasks } from '@/lib/db/schema';
-import { eq, sql } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { notFound } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, ListTodo, Calendar } from 'lucide-react';
 import ProjectEditButton from '@/components/portal/project-edit-button';
+import ProjectFeedback from '@/components/portal/project-feedback';
 
 export default async function ProjectOverviewPage({
   params,
@@ -39,6 +40,16 @@ export default async function ProjectOverviewPage({
     .then((rows) => rows[0]);
 
   if (!project) notFound();
+
+  let canSubmitFeedback = false;
+  if (!isAdmin) {
+    const member = await db
+      .select({ role: projectMembers.role })
+      .from(projectMembers)
+      .where(and(eq(projectMembers.projectId, project.id), eq(projectMembers.userId, session.user.id)))
+      .then((r) => r[0]);
+    if (member?.role === 'client') canSubmitFeedback = true;
+  }
 
   return (
     <div className="space-y-6">
@@ -101,6 +112,12 @@ export default async function ProjectOverviewPage({
           </CardContent>
         </Card>
       </div>
+
+      <ProjectFeedback
+        projectId={project.id}
+        canSubmit={canSubmitFeedback}
+        isAdmin={isAdmin}
+      />
     </div>
   );
 }

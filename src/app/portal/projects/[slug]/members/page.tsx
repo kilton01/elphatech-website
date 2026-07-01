@@ -29,6 +29,7 @@ export default async function MembersPage({
       id: projectMembers.id,
       userId: projectMembers.userId,
       role: projectMembers.role,
+      canTest: projectMembers.canTest,
       createdAt: projectMembers.createdAt,
       name: users.name,
       email: users.email,
