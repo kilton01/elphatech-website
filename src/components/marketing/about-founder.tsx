@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { Shield, Award, Code2 } from 'lucide-react';
 
 export default function AboutFounder() {
@@ -39,6 +40,25 @@ export default function AboutFounder() {
                 <span className="text-sm text-white font-medium">100% Retention</span>
               </div>
             </div>
+
+            <a
+              href="https://www.credly.com/badges/67d65683-2656-4f34-aa44-1a049152da5b/public_url"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-8 flex items-center gap-4 rounded-md bg-white/[0.03] px-4 py-3 no-underline transition-colors hover:bg-white/[0.06]"
+            >
+              <Image
+                src="/aws-saa-badge.png"
+                alt="AWS Certified Solutions Architect – Associate badge"
+                width={80}
+                height={80}
+                className="size-20 shrink-0"
+              />
+              <span>
+                <span className="block text-sm font-medium text-white">AWS Certified Solutions Architect – Associate</span>
+                <span className="block text-xs text-slate">Verify this credential on Credly</span>
+              </span>
+            </a>
           </div>
         </div>
       </div>
