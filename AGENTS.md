@@ -1,56 +1,28 @@
-# ElphaTech Solutions — Full-Stack Web App
+# ElphaTech Solutions — Marketing Site
 
-Next.js 16 (App Router, TypeScript, Tailwind v4) with PostgreSQL (Drizzle ORM), NextAuth v5 (magic links), Cloudflare R2 file storage, and Deployed on Vercel.
+Next.js 16 (App Router, TypeScript, Tailwind v4), deployed on Vercel. Public marketing site only — there is no login, portal, database or file storage.
 
 ## Structure
-- `src/app/(marketing)/` — public lead-generation site (Hero, Services, Work, Contact)
-- `src/app/portal/` — client portal (protected by auth)
-- `src/app/api/` — Next.js API routes (auth, contact, projects, tasks, files)
-- `src/components/marketing/` — marketing page components (Navigation, Hero, Services, etc.)
-- `src/components/portal/` — portal components (KanbanBoard, FileUpload, PortalNav, PortalHeader)
-- `src/lib/db/schema.ts` — Drizzle schema (users, accounts, sessions, projects, tasks, files, comments, activities)
-- `src/lib/auth.ts` — NextAuth v5 config (magic links via SMTP2Go)
-- `src/lib/r2.ts` — Cloudflare R2 client with presigned URL support
-- `src/content/case-studies/` — MDX case study files
-- `seed.ts` — database seed script (creates tables)
+- `src/app/(marketing)/page.tsx` — the single public page
+- `src/components/marketing/` — page sections (Navigation, Hero, Services, Work, Contact, ...)
+- `src/content/marketing.ts` — case studies, testimonials, tech list (edit and redeploy)
+- `src/app/api/contact/route.ts` — contact form: same-origin check, Upstash rate limit, then HubSpot lead + deal and a notification email via Bird, in parallel
+- `src/lib/hubspot.ts` — creates/updates the contact and opens a deal in the first pipeline stage
+- `src/lib/bird.ts` — `sendEmail` via the Bird API
+- `src/lib/rate-limit.ts` — Upstash limiter (contact form: 3/hour/IP; no-op with a console warning if credentials are missing)
+- Security headers and old-URL redirects (`/login`, `/portal/*` -> `/`) live in `next.config.ts`
 
-## Developer Commands
+## Commands
 ```bash
-npm run dev            # Start dev server
-npm run build          # Production build (lint + typecheck + compile)
-npm run lint           # ESLint
-npm run typecheck      # tsc --noEmit
-npm run db:generate    # Drizzle schema → SQL migration
-npm run db:push        # Push schema to database (dev)
-npm run db:migrate     # Run migrations (prod)
-npm run db:studio      # Drizzle Studio (DB GUI)
-npm run db:seed        # Create tables via seed.ts (requires DATABASE_URL)
+npm run dev | build | start | lint
+npx tsc --noEmit
 ```
+No test suite.
 
-## Database
-- Local: `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/elphatech`
-- Before running seed: ensure Postgres is running and database exists
-- Auth tables: `users`, `accounts`, `sessions`, `verification_tokens`
-- App tables: `projects`, `project_members`, `tasks`, `files`, `comments`, `activities`
-- Enums: `role` (admin/client), `task_status` (todo/in_progress/review/done), `task_priority` (low/medium/high/urgent)
+## Env vars
+`BIRD_ACCESS_TOKEN`, `BIRD_API_URL`, `EMAIL_FROM`, `HUBSPOT_ACCESS_TOKEN` (optional `HUBSPOT_DEAL_STAGE`, `HUBSPOT_DEAL_PIPELINE`), `KV_REST_API_URL`, `KV_REST_API_TOKEN` (created by Vercel's Upstash integration; `UPSTASH_REDIS_REST_*` also accepted).
 
-## Auth
-- Magic links via NextAuth v5 Email provider + SMTP2Go
-- Credentials provider also configured (email + bcrypt password)
-- JWT strategy (stateless, edge-compatible)
-- middleware.ts protects `/portal/*`
-- Roles: admin (you), client (view-only assigned projects)
-
-## Key Conventions
-- Marketing site uses Tailwind custom colors: `bg-navy`, `bg-navy2`, `bg-red`, `text-slate`, `border-brand`
-- Fonts: Sora (headings), Inter (body) via next/font/google
-- shadcn/ui components in `src/components/ui/`
-- Portal uses shadcn primitives + custom components
-- Contact form at `/api/contact` sends via nodemailer → SMTP2Go
-- R2 file uploads use presigned URLs (POST for URL → PUT file → POST metadata)
-- Case studies in MDX under `src/content/case-studies/`
-- SEO: sitemap.ts, robots.ts, OG metadata in marketing layout
-
-## Zustand / State
-- No global state manager — server components fetch from DB, client components use local state + revalidation
-- Portal session via `auth()` server-side, `useSession()` client-side
+## Notes
+- Prospects are managed in HubSpot (Deals pipeline); client project updates happen outside this codebase.
+- Do not reintroduce a public login page on this domain without reading `SECURITY_AUDIT.md` (it is a phishing-heuristic risk).
+- Brand colors are Tailwind custom utilities (`bg-navy`, `bg-red`, `text-slate`) defined in `src/app/globals.css`.

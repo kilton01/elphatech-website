@@ -2,6 +2,14 @@
 
 Date: 2026-10-03 · Scope: `elphatech/` Next.js app (the legacy static `index.html` site is superseded and was not in the deployed path), live HTTP/DNS checks of the public domain.
 
+## Update — client portal removed (2026-10-03)
+
+After this audit the client portal, login, admin APIs, database layer, file storage and cron job were removed. Prospects now live in HubSpot; the contact form creates a contact and a deal there and emails a notification (the enquiry is lost only if both fail). Homepage content moved to `src/content/marketing.ts`.
+
+Result: public surface is the homepage, `/api/contact`, `robots.txt` and `sitemap.xml`; old `/login` and `/portal/*` URLs 308-redirect to `/`. `npm audit --omit=dev`: 0 vulnerabilities. Typecheck, lint and build pass. Verified locally: security headers on `/`, `/api/projects` and `/api/auth/*` return 404, contact form rejects cross-origin and invalid requests (403/400), no outbound domains in the page except the WhatsApp link.
+
+Findings C1, C2, H1-H4, M1, M4, M5 and the login-page reputation risks are resolved by the removal. Still open and outside the repo: **C3** rotate the Bird token that was stored in `.claude/settings.json`; **H5** verify SPF/DKIM/DMARC for mail sent from `elphatechsolutions.com`; **M6** redirect `www` to apex; **M7** CAA record; request Safe Browsing / SmartScreen reviews; remove unused Vercel env vars (`DATABASE_URL`, `AUTH_SECRET`, `NEXTAUTH_URL`, `R2_*`, `CRON_SECRET`); shut down or firewall the Postgres server that was reachable on a public IP. Not yet verified: a real contact-form submission on the deployed site.
+
 ## 1. Executive Summary
 
 | Question | Finding |
