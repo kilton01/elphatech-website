@@ -19,9 +19,6 @@ export default function Footer() {
           <Link href="#contact" className="text-xs text-slate no-underline hover:text-white transition-colors">
             Contact
           </Link>
-          <Link href="/portal" className="text-xs text-slate no-underline hover:text-white transition-colors">
-            Client Portal
-          </Link>
         </div>
 
         <div className="text-xs text-slate">

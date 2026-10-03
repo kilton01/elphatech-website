@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
+import { authLimiter } from '@/lib/rate-limit';
 
 const PUBLIC_API_ROUTES = ['/api/auth', '/api/contact'];
 const MUTATION_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
@@ -26,12 +27,25 @@ function checkCsrf(request: NextRequest): boolean {
   const origin = request.headers.get('origin');
   const host = request.headers.get('host');
   if (!origin || !host) return false;
-  const originHost = new URL(origin).host;
-  return originHost === host;
+  try {
+    return new URL(origin).host === host;
+  } catch {
+    return false;
+  }
 }
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Throttle magic-link requests so the sign-in endpoint can't be used to mail-bomb
+  // third parties (which also damages the sending domain's reputation).
+  if (request.method === 'POST' && pathname === '/api/auth/signin/email') {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'anonymous';
+    const { success } = await authLimiter.limit(ip);
+    if (!success) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+    }
+  }
 
   // CSRF check on all mutations (except NextAuth's own CSRF-protected routes)
   if (

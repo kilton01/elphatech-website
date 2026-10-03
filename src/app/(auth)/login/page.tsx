@@ -49,7 +49,7 @@ export default function LoginPage() {
         </div>
         <div className="rounded-lg border border-brand bg-surface-2 p-4 text-left">
           <p className="text-xs text-tertiary leading-relaxed">
-            Click the link in the email to sign in. The link expires in 15 minutes.
+            Click the link in the email to sign in. The link expires in 24 hours.
             If you don&apos;t see it, check your spam folder.
           </p>
         </div>

@@ -1,4 +1,10 @@
+import type { Metadata } from 'next';
 import Image from 'next/image';
+
+export const metadata: Metadata = {
+  title: 'Client Portal Sign In',
+  robots: { index: false, follow: false },
+};
 
 export default function AuthLayout({
   children,

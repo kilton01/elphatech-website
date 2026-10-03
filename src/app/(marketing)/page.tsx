@@ -8,35 +8,19 @@ import AboutFounder from '@/components/marketing/about-founder';
 import TechStack from '@/components/marketing/tech-stack';
 import Contact from '@/components/marketing/contact';
 import Footer from '@/components/marketing/footer';
-import { db } from '@/lib/db';
-import { testimonials, caseStudies, technologies } from '@/lib/db/schema';
-import { asc, eq } from 'drizzle-orm';
+import { testimonials, caseStudies, technologies } from '@/content/marketing';
 
-export const revalidate = 60;
-
-async function getMarketingData() {
-  const [testimonialsData, caseStudiesData, technologiesData] = await Promise.all([
-    db.select().from(testimonials).where(eq(testimonials.status, 'published')).orderBy(asc(testimonials.position)),
-    db.select().from(caseStudies).where(eq(caseStudies.status, 'published')).orderBy(asc(caseStudies.position)),
-    db.select().from(technologies).where(eq(technologies.status, 'published')).orderBy(asc(technologies.position)),
-  ]);
-
-  return { testimonialsData, caseStudiesData, technologiesData };
-}
-
-export default async function MarketingPage() {
-  const { testimonialsData, caseStudiesData, technologiesData } = await getMarketingData();
-
+export default function MarketingPage() {
   return (
     <>
       <Navigation />
       <Hero />
       <Services />
-      <Work items={caseStudiesData} />
+      <Work items={caseStudies} />
       <Process />
-      <Testimonials items={testimonialsData} />
+      <Testimonials items={testimonials} />
       <AboutFounder />
-      <TechStack items={technologiesData} />
+      <TechStack items={technologies} />
       <Contact />
       <Footer />
     </>

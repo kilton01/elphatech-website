@@ -6,9 +6,18 @@ import { sendEmail } from '@/lib/bird';
 
 const BATCH_SIZE = 10;
 
+export async function GET(request: NextRequest) {
+  return handle(request);
+}
+
 export async function POST(request: NextRequest) {
+  return handle(request);
+}
+
+async function handle(request: NextRequest) {
+  const secret = process.env.CRON_SECRET;
   const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!secret || authHeader !== `Bearer ${secret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -66,7 +75,7 @@ async function processUserDigest({ userId, email, name, count }: {
           <h2 style="color: #FFFFFF; margin: 0 0 8px; font-size: 20px;">Hi ${escapeHtml(name || 'there')},</h2>
           <p style="color: #94A3B8; margin: 0 0 24px; font-size: 14px;">Here's what happened since your last update:</p>
           <ul style="color: #94A3B8; line-height: 1.8; padding-left: 16px; margin: 0 0 24px;">${itemsHtml}</ul>
-          <a href="${process.env.NEXTAUTH_URL || 'https://portal.elphatechsolutions.com'}/portal"
+          <a href="${process.env.NEXTAUTH_URL || 'https://elphatechsolutions.com'}/portal"
              style="display: inline-block; background: #E8302A; color: white; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
             View in Portal
           </a>

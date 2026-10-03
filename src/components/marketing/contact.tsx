@@ -80,7 +80,11 @@ export default function Contact() {
               </div>
               <div>
                 <strong className="block font-[var(--font-sora)] text-sm text-white mb-0.5">WhatsApp / Call</strong>
-                <span className="text-slate text-sm">+233 557 384 213 /+233 558 352 396</span>
+                <span className="text-slate text-sm">055 835 2396</span>
+                <span className="mt-1 flex gap-4 text-sm">
+                  <a href="tel:+233558352396" className="text-red no-underline hover:text-white transition-colors">Call</a>
+                  <a href="https://wa.me/233558352396" target="_blank" rel="noopener noreferrer" className="text-red no-underline hover:text-white transition-colors">WhatsApp</a>
+                </span>
               </div>
             </div>
 
