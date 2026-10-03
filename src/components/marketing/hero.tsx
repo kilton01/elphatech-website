@@ -9,13 +9,16 @@ export default function Hero() {
       <div className="relative z-10 max-w-[680px]">
         <p className="font-[var(--font-sora)] text-xs font-semibold tracking-widest text-red uppercase mb-5 flex items-center gap-2.5">
           <span className="inline-block w-7 h-0.5 bg-red" />
-          Founder-Led · AWS Expert · 5+ Years
+          Founder-Led · AWS Certified · 5+ Years
         </p>
         <h1 className="font-[var(--font-sora)] text-[clamp(2.4rem,5.5vw,4rem)] font-extrabold leading-[1.12] tracking-tight mb-6 text-white">
-          I Build Software That <span className="text-red">Scales Your Business</span>
+          We Build and Run Secure, <span className="text-red">Cost-Efficient Cloud Platforms</span>
         </h1>
-        <p className="text-lg text-slate leading-relaxed mb-9 max-w-[560px]">
-          Whether you need a secure web platform, cloud infrastructure that scales, or a product built from scratch — I bring the technical depth to get it done right, without the agency overhead.
+        <p className="text-lg text-slate leading-relaxed mb-4 max-w-[560px]">
+          We help growing teams modernize AWS, automate delivery, and build software that scales reliably — founder-led from discovery through launch.
+        </p>
+        <p className="text-sm text-slate/80 leading-relaxed mb-9 max-w-[560px]">
+          For growing businesses that need dependable software and cloud infrastructure without building a large in-house team.
         </p>
         <div className="flex gap-4 flex-wrap">
           <Link

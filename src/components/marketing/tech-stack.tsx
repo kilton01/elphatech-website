@@ -17,7 +17,7 @@ export default function TechStack({ items }: { items: Technology[] }) {
             Built With the Right Tools
           </h2>
           <p className="text-slate mt-3 max-w-[520px] mx-auto">
-            I work with modern, battle-tested technologies — not hype.
+            We work with modern, battle-tested technologies — not hype.
           </p>
         </div>
 

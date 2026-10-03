@@ -1,5 +1,5 @@
 import Image from 'next/image';
-import { Shield, Award, Code2 } from 'lucide-react';
+import { Shield, Database, Code2 } from 'lucide-react';
 
 export default function AboutFounder() {
   return (
@@ -20,10 +20,10 @@ export default function AboutFounder() {
               Stephen — Founder & Lead Engineer
             </h3>
             <p className="text-slate leading-relaxed mb-6">
-              I started ElphaTech Solutions after 5+ years of building production systems and managing AWS infrastructure for companies across logistics, e-commerce, and enterprise SaaS. Every project I take on gets my direct attention — no hand-offs, no junior devs learning on your dime.
+              I started ElphaTech Solutions after 5+ years of building production systems and managing AWS infrastructure for companies across logistics, e-commerce, and enterprise SaaS. I lead every engagement personally and manage the specialist team that delivers larger builds, so you have one accountable lead from first call to launch.
             </p>
             <p className="text-slate leading-relaxed mb-8">
-              I specialize in the intersection of software engineering and cloud infrastructure: building apps that are fast, secure, and affordable to run at scale.
+              I specialize in the intersection of software engineering and cloud infrastructure: building apps that are fast, secure, and affordable to run at scale. Alongside that, I build workflow automations, ETL data pipelines, and monitoring & evaluation (M&E) systems.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -36,8 +36,8 @@ export default function AboutFounder() {
                 <span className="text-sm text-white font-medium">Full-Stack</span>
               </div>
               <div className="flex items-center gap-3 bg-white/[0.03] rounded-md px-4 py-3">
-                <Award size={18} className="text-red shrink-0" />
-                <span className="text-sm text-white font-medium">100% Retention</span>
+                <Database size={18} className="text-red shrink-0" />
+                <span className="text-sm text-white font-medium">ETL &amp; Automation</span>
               </div>
             </div>
 

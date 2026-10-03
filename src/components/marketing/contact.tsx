@@ -51,7 +51,7 @@ export default function Contact() {
             Let&apos;s Build Something Together
           </h2>
           <p className="text-slate mt-3 max-w-[520px] mx-auto">
-            Tell me about your project and I&apos;ll get back to you within 24 hours.
+            Tell us about your project and we&apos;ll get back to you within 24 hours. Not sure what you need? Describe what you&apos;re trying to achieve and we&apos;ll work out the next practical step together.
           </p>
         </div>
 
@@ -61,7 +61,7 @@ export default function Contact() {
               Ready to talk?
             </h3>
             <p className="text-slate mb-8 leading-relaxed">
-              Whether you&apos;re starting from scratch or need help with an existing system, I&apos;d love to hear about your challenge.
+              Whether you&apos;re starting from scratch or need help with an existing system, we&apos;d love to hear about your challenge.
             </p>
 
             <div className="flex items-start gap-3 mb-4">

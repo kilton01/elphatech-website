@@ -18,17 +18,9 @@ export const caseStudies = [
     category: 'WEBSITE SECURITY & MODERNIZATION',
     title: 'Logistics & Storage Company — Full Website Rescue',
     description:
-      "A client's WordPress site was compromised — hackers had injected a betting platform into the database. I identified the breach, cleaned every backdoor, rebuilt the site as a headless WordPress + Next.js application, and created a custom security plugin to replace the vulnerable one.",
+      "A client's WordPress site was compromised — hackers had injected a betting platform into the database. The breach was traced, every backdoor cleaned, and the site rebuilt as a headless WordPress + Next.js application, with a custom security plugin replacing the vulnerable one.",
     outcome:
-      'Client reclaimed their business — zero security issues since launch. Added PWA with push notifications for mobile customers.',
-  },
-  {
-    id: 'c2',
-    category: 'AWS COST OPTIMIZATION',
-    title: 'Enterprise Client — Cloud Bill Cut by 75%',
-    description:
-      'Audited a sprawling multi-service AWS environment. Identified idle compute, over-provisioned databases, untagged resources, and misconfigured storage tiers. Implemented right-sizing, reserved instances, and automated scaling policies.',
-    outcome: 'Monthly bill dropped from $24,000 to $6,000 — saving $216,000 per year.',
+      'Client reclaimed their business — no reported security incidents since launch. Added PWA with push notifications for mobile customers.',
   },
 ];
 

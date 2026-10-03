@@ -2,12 +2,6 @@ import { Code2, Cloud, TrendingDown, Rocket, Database, MessageSquare } from 'luc
 
 const services = [
   {
-    icon: Code2,
-    title: 'Software Development',
-    description:
-      'Custom web and mobile applications built with modern frameworks. I architect solutions that scale with your business from day one.',
-  },
-  {
     icon: Cloud,
     title: 'Cloud Consultation',
     description:
@@ -17,23 +11,29 @@ const services = [
     icon: TrendingDown,
     title: 'Cloud Cost Optimization',
     description:
-      'I audit your cloud spend and implement proven strategies to cut costs by 30–60% without sacrificing performance or reliability.',
+      'We audit your cloud spend and implement proven strategies to cut costs by 30–60% without sacrificing performance or reliability.',
   },
   {
     icon: Rocket,
     title: 'Application Deployment',
     description:
-      'CI/CD pipelines, containerization, and zero-downtime deployments. I take your app from code to production seamlessly.',
+      'CI/CD pipelines, containerization, and zero-downtime deployments. We take your app from code to production seamlessly.',
+  },
+  {
+    icon: Code2,
+    title: 'Software Development',
+    description:
+      'Custom web and mobile applications, workflow automations, and monitoring & evaluation (M&E) systems built with modern frameworks and designed to scale.',
   },
   {
     icon: Database,
     title: 'Data Scraping & Extraction',
     description:
-      'Automated data pipelines that collect, clean, and structure web data at scale — fueling your analytics, AI, and business intelligence.',
+      'Automated ETL and data pipelines that collect, clean, and structure web data at scale — fueling your analytics, AI, and business intelligence.',
   },
   {
     icon: MessageSquare,
-    title: 'Application Consultation',
+    title: 'Architecture & Cloud Reviews',
     description:
       'Architecture reviews, technology audits, and roadmap planning. Get expert guidance before you write a single line of code.',
   },
@@ -51,7 +51,7 @@ export default function Services() {
             End-to-End Technology Solutions
           </h2>
           <p className="text-slate mt-3 max-w-[520px] mx-auto">
-            From bespoke software to cloud optimization — I handle the tech so you can focus on growth.
+            From bespoke software to cloud optimization — we handle the tech so you can focus on growth.
           </p>
         </div>
 

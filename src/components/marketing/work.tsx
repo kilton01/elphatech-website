@@ -20,11 +20,11 @@ export default function Work({ items }: { items: CaseStudy[] }) {
             Real Problems. Real Results.
           </h2>
           <p className="text-slate mt-3 max-w-[520px] mx-auto">
-            Here is what I have been building. Names withheld for client privacy.
+            Here is what we have been building. Names withheld for client privacy.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-7 max-w-[800px] mx-auto">
+        <div className={`grid grid-cols-1 gap-7 mx-auto ${items.length > 1 ? 'md:grid-cols-2 max-w-[800px]' : 'max-w-[400px]'}`}>
           {items.map((project) => (
             <div
               key={project.id}

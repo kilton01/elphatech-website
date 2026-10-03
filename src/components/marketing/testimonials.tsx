@@ -18,7 +18,7 @@ export default function Testimonials({ items }: { items: Testimonial[] }) {
             Client Results
           </p>
           <h2 className="font-[var(--font-sora)] text-[clamp(1.8rem,3.5vw,2.6rem)] font-extrabold tracking-tight text-white">
-            Don&apos;t Take My Word For It
+            Don&apos;t Just Take Our Word For It
           </h2>
         </div>
 
