@@ -11,7 +11,7 @@ const services = [
     icon: TrendingDown,
     title: 'Cloud Cost Optimization',
     description:
-      'We audit your cloud spend and implement proven strategies to cut costs by 30–60% without sacrificing performance or reliability.',
+      'We review how you use AWS, find where you are paying for more than you need, and put practical changes in place without sacrificing performance or reliability.',
   },
   {
     icon: Rocket,
