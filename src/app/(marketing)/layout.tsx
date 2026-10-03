@@ -13,6 +13,7 @@ export const metadata: Metadata = {
   },
   description:
     'We build enterprise-grade software, cloud infrastructure, and data systems for businesses that need to scale. Based in Accra, Ghana.',
+  alternates: { canonical: '/' },
   openGraph: {
     title: 'ElphaTech Solutions – Software. Cloud. Results.',
     description:

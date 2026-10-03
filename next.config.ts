@@ -23,11 +23,19 @@ const nextConfig: NextConfig = {
   },
   // Old portal/login URLs (bookmarks, emailed links, search results) go to the home page.
   async redirects() {
-    return ['/login', '/verify-request', '/error', '/portal', '/portal/:path*'].map((source) => ({
-      source,
-      destination: '/',
-      permanent: true,
-    }));
+    return [
+      {
+        source: '/:path*',
+        has: [{ type: 'host' as const, value: 'www.elphatechsolutions.com' }],
+        destination: 'https://elphatechsolutions.com/:path*',
+        permanent: true,
+      },
+      ...['/login', '/verify-request', '/error', '/portal', '/portal/:path*'].map((source) => ({
+        source,
+        destination: '/',
+        permanent: true,
+      })),
+    ];
   },
 };
 

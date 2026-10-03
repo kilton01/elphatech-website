@@ -1,108 +1,133 @@
 # Security Audit — elphatechsolutions.com
 
-Date: 2026-10-03 · Scope: `elphatech/` Next.js app (the legacy static `index.html` site is superseded and was not in the deployed path), live HTTP/DNS checks of the public domain.
+Date: 2026-10-03 (second pass; supersedes the earlier same-day audit, whose history is summarised in §8)
+Scope: `elphatech/` Next.js app, deployment configuration visible from the repo, and live HTTP/DNS/TLS checks of the production domain. The legacy static `index.html` in the parent folder is not deployed and was not reviewed in depth.
 
-## Update — client portal removed (2026-10-03)
+## Status update (same day, after the audit)
 
-After this audit the client portal, login, admin APIs, database layer, file storage and cron job were removed. Prospects now live in HubSpot; the contact form creates a contact and a deal there and emails a notification (the enquiry is lost only if both fail). Homepage content moved to `src/content/marketing.ts`.
+The owner reports the off-repo P0/P1 items (Bird token rotation, email authentication, vendor review requests, Vercel env cleanup) are done. Re-checked from outside afterwards:
 
-Result: public surface is the homepage, `/api/contact`, `robots.txt` and `sitemap.xml`; old `/login` and `/portal/*` URLs 308-redirect to `/`. `npm audit --omit=dev`: 0 vulnerabilities. Typecheck, lint and build pass. Verified locally: security headers on `/`, `/api/projects` and `/api/auth/*` return 404, contact form rejects cross-origin and invalid requests (403/400), no outbound domains in the page except the WhatsApp link.
-
-Findings C1, C2, H1-H4, M1, M4, M5 and the login-page reputation risks are resolved by the removal. Still open and outside the repo: **C3** rotate the Bird token that was stored in `.claude/settings.json`; **H5** verify SPF/DKIM/DMARC for mail sent from `elphatechsolutions.com`; **M6** redirect `www` to apex; **M7** CAA record; request Safe Browsing / SmartScreen reviews; remove unused Vercel env vars (`DATABASE_URL`, `AUTH_SECRET`, `NEXTAUTH_URL`, `R2_*`, `CRON_SECRET`); shut down or firewall the Postgres server that was reachable on a public IP. Not yet verified: a real contact-form submission on the deployed site.
+- **Email authentication verified (M1 resolved):** a real contact-form notification (Bird → `info@` → Cloudflare Email Routing → Gmail, 2026-10-03) shows Bird's DKIM `d=elphatechsolutions.com s=bird-878-0626` **pass**, SPF **pass** for `send.elphatechsolutions.com` (Bird's return-path subdomain, which is why the apex SPF correctly lists only Cloudflare), and **DMARC pass** with `From` aligned. The two `dkim=fail` entries are Cloudflare's own forwarding re-signatures (`cf2024-1`), a normal artefact of forwarding that does not affect the DMARC result thanks to the passing Bird signature and ARC. This also confirms the contact route's Bird email path works in production, and the owner confirmed the HubSpot contact and deal were created from the same test submission, so the full contact flow works end to end. DMARC is still `p=none`; once the `rua` reports show clean alignment for a couple of weeks, move to `p=quarantine`.
+- **Bird adds an unsubscribe footer and click-tracking to the internal notification** (`List-Unsubscribe` header; the footer link is wrapped in a `post.eu.spmailtechno.com` tracking URL). It is harmless, but a tracked third-party redirect domain in mail from your domain is an avoidable reputation signal. Disable click/open tracking and the auto-unsubscribe footer for transactional sending in the Bird dashboard (the code only sets `track_clicks=false` when a caller asks, and the contact route does not).
+- **Code fixes not deployed yet:** production still returns 200 for `www` and has no canonical tag. The `www` redirect and canonical changes in §5 take effect only after the next deploy.
+- Not verifiable from here: token rotation, Vercel env cleanup, and the outcome of the vendor reviews. Treated as done on the owner's word.
+- CAA and DNSSEC are still absent (P2).
 
 ## 1. Executive Summary
 
 | Question | Finding |
 |---|---|
-| Actual compromise / malware / injected code? | **No evidence.** No obfuscated JS, no `eval`/`new Function`/`child_process`, no iframes, no injected `<script>` (the only inline script is the JSON-LD from `src/lib/schema.ts`), no base64 payloads, no install scripts, no unknown third-party domains. The live homepage loads only same-origin scripts. `/.env`, `/.git/config`, source maps all return 404/403. |
-| Security vulnerabilities? | **Yes, in dependencies** (now mostly fixed): the deployed Next.js 16.2.9 and next-auth beta.31 had 4 *critical* advisories (incl. RCE in image optimisation / `next/og`, a middleware bypass and an Auth.js email-normalisation bypass). Plus several app-level gaps (below). None indicate that anyone exploited them. |
-| Suspicious behaviour? | None malicious. Several benign behaviours resemble phishing patterns (§6). |
-| Likely false-positive / reputation issue? | **Yes — this is the most likely cause.** A brand-new domain with a "sign in with your email → we email you a link" page listed in the sitemap, magic-link emails from a domain whose SPF doesn't authorise the actual sender, DMARC at `p=none`, and a git history showing Chrome's phishing heuristic was already tripped once on the magic-link URL (`a1ec016 fix: token-only verify URL to avoid Chrome phishing heuristic`). |
+| Actual compromise, malware or injected code? | **No evidence.** No obfuscated JS, `eval`/`new Function`, `child_process`, iframes, base64 payloads, or unknown third-party scripts. The live homepage loads only same-origin scripts. The only outbound links are WhatsApp (`wa.me`) and Credly. `.env`, `.git/config`, `/api/projects` and `/api/auth/*` return 404; source maps return 403. |
+| Security vulnerabilities? | **Not in production code.** `npm audit --omit=dev`: 0 vulnerabilities. 5 "high" findings exist only in the dev-time ESLint chain (`eslint-config-next` → `fast-glob` → `micromatch` → `braces`) and never ship. The earlier critical Next.js/next-auth advisories were fixed by upgrading to Next 16.3.8 and later removing auth entirely. |
+| Suspicious behaviour? | None malicious. |
+| Likely false-positive / reputation issue? | **Yes, this is the most probable cause.** The domain was registered **2026-06-22 (about 3.5 months old)**. Until recently it hosted an email-only login page ("magic link") with long query-string URLs, mail from a domain with weak email authentication (SPF does not list the sender; DMARC `p=none`), and a git history showing Chrome's phishing heuristic already tripped once. That is a textbook profile for a reputation false positive. The login surface is now gone, so what remains is clearing the flag with each vendor. |
 
-**Bottom line:** no real compromise was found. The blocking is most plausibly reputation/heuristic-driven, aggravated by (a) the login page being promoted in the sitemap, (b) email-authentication gaps on the domain, and (c) unpatched dependencies. I could not see the actual flag source — see §7 for how to confirm it.
+**Bottom line:** the codebase and the live deployment are clean. The blocking is a domain-reputation problem, not a compromised application. Code changes cannot clear a reputation flag; vendor reviews can (§6).
 
-Limits of this review: I can't query Safe Browsing / SmartScreen / VirusTotal from here, can't see Vercel/Cloudflare dashboards or production env vars, and couldn't exercise the full magic-link flow (needs the production DB + email provider). Findings about production env are inferred.
+Limits of this review: I cannot query Safe Browsing, SmartScreen or VirusTotal from here, cannot see the Vercel/Cloudflare/Bird/HubSpot dashboards or production env vars, and did not submit a real contact form on production. Statements about those are inferred and marked as such.
 
 ## 2. Architecture
 
-Next.js 16 (App Router, Turbopack) on Vercel · NextAuth v5 beta, Email (magic link) provider, JWT sessions, Drizzle adapter · Postgres · Bird (email API) · Cloudflare R2 (presigned uploads) · Upstash Redis (rate limiting) · DNS/MX on Cloudflare, `www` CNAME and apex A records to Vercel. No Dockerfile/CI; `docker-compose.yml` is dev-only Postgres. Third-party runtime requests: only `next/font/google` (self-hosted at build time) and Bird API server-side.
+- Next.js 16.3.8 (App Router, Turbopack, Tailwind v4) on Vercel. One static page (`/`), `robots.txt`, `sitemap.xml`, and one dynamic route, `POST /api/contact`.
+- No authentication, database, file storage, cron or admin routes (removed in commit `c03ee1c`).
+- External services, all server-side: HubSpot (lead + deal), Bird (notification email), Upstash Redis (rate limit). Client-side third parties: none (fonts are self-hosted at build time by `next/font`).
+- DNS/registrar at Cloudflare; apex A records to Vercel; `www` CNAME to Vercel; inbound mail via Cloudflare Email Routing. TLS: Let's Encrypt, valid to 2026-11-24 for apex and `www` separately. No Dockerfile, CI or IaC in the repo.
+- Dependencies (11 runtime): next, react, react-dom, zod, sonner, lucide-react, clsx, tailwind-merge, tailwindcss-animate, @upstash/ratelimit, @upstash/redis. All well-known. The only install script in the lockfile is `unrs-resolver` (dev-only, via the ESLint import resolver; legitimate).
 
 ## 3. Findings
 
 ### Critical
-| # | Finding | Evidence | Contributes to warning? | Status |
-|---|---|---|---|---|
-| C1 | Next.js 16.2.9 — critical RCE advisories (Image Optimisation/AVIF, `next/og`), middleware bypass with Turbopack, SSRF, cache confusion | `package.json` `"next": "16.2.9"` | Unlikely directly, but a compromised host is the other main cause of real blocklisting | **Fixed** → 16.3.8 |
-| C2 | next-auth beta.31 / @auth/core <0.41.3 — email normaliser homoglyph `@` bypass (can mail a login link to an attacker-chosen address), fail-open config errors | `package.json` | No | **Fixed** → beta.32 / core 0.41.3 |
-| C3 | **Live Bird API token stored in plaintext** in `../.claude/settings.json` (two saved `curl` permission entries). Outside the git repo and not found in git history, but it is a valid send-as-your-domain credential sitting in a config file/transcripts | `/home/stephen/Documents/personal-project/elphatech solutions/.claude/settings.json` | Indirectly: a leaked sender token enables spam/phishing from your domain, which *would* get it blocked | **Unresolved — rotate the Bird token now**, then delete those two entries. I did not edit that file. |
+None in the current codebase.
+
+**C3 (carried over, still open, outside the repo).** `../.claude/settings.json` (parent folder, not in git) still contains a plaintext Bird API token in saved command-permission entries (re-confirmed this pass). A leaked sender token allows sending mail as your domain, which would genuinely get it blocklisted. **Action: rotate the Bird token now, delete those entries, and review Bird send logs for unexpected sends.** I did not edit that file.
 
 ### High
-| # | Finding | Evidence | Contributes? | Status |
-|---|---|---|---|---|
-| H1 | Daily digest cron never ran: Vercel Cron issues `GET`, route only exported `POST` (405) | `src/app/api/cron/digest/route.ts` | No | **Fixed** (GET+POST) |
-| H2 | Cron auth compared against `Bearer ${process.env.CRON_SECRET}` — if unset, `Authorization: Bearer undefined` passes | same | No | **Fixed** (fails closed). Confirm `CRON_SECRET` is set in Vercel. |
-| H3 | No rate limit on magic-link request endpoint (`authLimiter` defined but never used) → anyone can trigger unlimited sign-in emails from your domain (mail-bombing, spam complaints, sender-reputation damage) | `src/lib/rate-limit.ts`, none in `auth.ts` | **Yes (email reputation)** | **Fixed** in `src/middleware.ts` (5/15 min/IP) |
-| H4 | Rate limiting silently becomes a no-op when `UPSTASH_REDIS_*` is missing; `.env.local` doesn't contain them, and `env.ts` (which would flag it) is imported nowhere | `rate-limit.ts`, `src/lib/env.ts` | Yes (same as H3) | **Unresolved — verify Upstash vars exist in Vercel prod.** |
-| H5 | Email authentication needs verification: the apex SPF is `include:_spf.mx.cloudflare.net` only (Cloudflare *inbound* routing) and does not list Bird. CLAUDE.md says Bird's return-path CNAME is active, which can satisfy SPF alignment via the bounce domain, and Bird's DKIM selectors are unknown to me, so I could not confirm SPF/DKIM pass. DMARC is `p=none`. | `dig TXT elphatechsolutions.com` | **Possibly.** Auth-themed mail that fails DKIM/DMARC alignment is a phishing signal | **Unresolved (DNS, outside repo).** Send a magic link to a Gmail address and check "Show original" for SPF/DKIM/DMARC = PASS. Fix records from the Bird dashboard if not, then move DMARC to `quarantine`. |
+None.
 
 ### Medium
-| # | Finding | Evidence | Contributes? | Status |
+| # | Finding | Evidence | Could contribute to warning? | Status |
 |---|---|---|---|---|
-| M1 | `/login` was in `sitemap.xml` and indexable | `src/app/sitemap.ts` | **Yes** — advertises a credential-style page on a young domain | **Fixed** (removed; `noindex` on auth pages) |
-| M2 | Security headers only applied by middleware to `/portal`, `/login`, `/api`; the homepage had only HSTS | live `curl -I /` | Minor | **Fixed** via `next.config.ts` `headers()` (+Permissions-Policy) |
-| M3 | No Content-Security-Policy anywhere | — | Minor | **Unresolved (P2)** — needs nonce plumbing for Next inline scripts; do in Report-Only first |
-| M4 | CSRF check did `new URL(origin)` without try/catch → 500 on malformed Origin | `src/middleware.ts` | No | **Fixed** (returns 403) |
-| M5 | Remaining `npm audit` highs (11, all non-critical): `nodemailer` (peer of next-auth, not used for transport — Bird API is used), `shadcn` CLI + `fast-glob/braces/micromatch/ts-morph` (build tooling listed under `dependencies`), | `npm audit --omit=dev` | No | **Unresolved.** Move `shadcn` to `devDependencies`; nodemailer 10 is a major bump outside next-auth's peer range — wait for upstream. |
-| M6 | `www` serves the site (200) instead of redirecting to apex → duplicate content/two origins | `curl -I www.` | Minor | **Unresolved** — add Vercel domain redirect |
-| M7 | No CAA record | `dig CAA` | No | **Unresolved (P2)** |
+| M1 | Email authentication likely weak: SPF is `v=spf1 include:_spf.mx.cloudflare.net ~all` (Cloudflare inbound routing only; Bird not listed); DMARC `p=none`. Bird DKIM selectors could not be verified from here. | `dig TXT elphatechsolutions.com`, `dig TXT _dmarc.…` | **Yes.** Mail from a young domain failing alignment is a strong phishing signal, and many URL-reputation systems score the domain's mail too. | Open (DNS). Send a test through Bird to Gmail, check "Show original" for SPF/DKIM/DMARC = PASS; fix records from the Bird dashboard; then DMARC `p=quarantine`. |
+| M2 | `www` and apex both served 200 (two origins, duplicate content), and no canonical tag. This is the "Duplicate without user-selected canonical" row in your Search Console screenshot. | live `curl -I`; no `<link rel="canonical">` in HTML | Minor (splits reputation across two hostnames) | **Fixed** (§5). |
+| M3 | No Content-Security-Policy. | response headers | No (scanners do not penalise this), but it is the main missing browser hardening | Open (P2). Needs nonce plumbing for Next's inline scripts; roll out Report-Only first. |
 
 ### Low / hardening
-- Login page said links expire in 15 min; real expiry is 24 h (inconsistent copy looks sloppy to reviewers) — **fixed**.
-- Digest email fallback URL pointed to `portal.elphatechsolutions.com`, which is NXDOMAIN — **fixed** to apex. Make sure `NEXTAUTH_URL` is set to the apex.
-- `/login` is served with `access-control-allow-origin: *` (Vercel static default, harmless for a static page).
-- `X-XSS-Protection` is deprecated; harmless.
-- `stale env.ts` references SMTP2GO vars that are no longer used and would hard-fail a production boot if it were ever imported. Delete or update.
-- `trustHost: true` in NextAuth is acceptable on Vercel; ensure `NEXTAUTH_URL` is pinned.
-- `/api/auth/providers` and `/api/auth/csrf` are publicly readable (normal for NextAuth).
-- Upload MIME types are client-declared; downloads are forced `Content-Disposition: attachment` (good). Consider server-side content sniffing/AV scan for `application/zip`.
-- Repo hygiene: `ruvector.db`, `agentdb.rvf`, `.superpowers/` and AI-tool state sit in the project tree (ignored/untracked, but keep them out of deploys).
-- Lint has 20 pre-existing errors (e.g. `react-hooks/purity`), unrelated to security.
+- **Rate limiter fails open.** `src/lib/rate-limit.ts` becomes a no-op (with a console warning) if Upstash/KV credentials are absent. `.env.local` has `KV_REST_API_*`; confirm the same exist in Vercel production, otherwise the contact form is unthrottled and could be abused to spam `info@` and HubSpot. Consider failing closed in production.
+- **Rate-limit key.** Uses the first `x-forwarded-for` value. Safe on Vercel (the platform sets it); would be spoofable behind a different proxy.
+- **JSON-LD** (`src/app/(marketing)/layout.tsx`) uses `dangerouslySetInnerHTML` with `JSON.stringify` of a static constant. Not exploitable, but escaping `<` as `<` is a free hardening step.
+- **No CAA record** and no DNSSEC at Cloudflare. P2.
+- **`access-control-allow-origin: *`** on static pages and `robots.txt`: Vercel's default for static assets. Harmless; the contact API enforces a same-origin `Origin` check separately.
+- **`X-Frame-Options: DENY`** is set; no `frame-ancestors` CSP yet (covered by M3).
+- **Dev-only audit findings:** 5 highs through `eslint-config-next`. `npm audit fix --force` proposes downgrading to eslint-config-next 14, which is wrong. Wait for upstream; no production impact.
+- **Outdated (non-security):** @upstash/ratelimit 2.0.8→2.2.0, @upstash/redis 1.38→1.39, zod 4.4→4.6, lucide-react 1.21→1.51, sonner 2.0.7→2.0.8. Left untouched to avoid unrequested churn.
+- **Repo hygiene:** unused Next.js boilerplate SVGs in `public/` (`next.svg`, `vercel.svg`, `file.svg`, `globe.svg`, `window.svg`); `logo.png` is 2.1 MB (performance, not security); `docs/superpowers/plans/…` is tracked; AI-tool state (`ruvector.db`, `agentdb.rvf`, `.superpowers/`) sits in/near the tree (untracked/ignored; keep out of deploys).
+- **Stale env vars in Vercel** (inferred from `.env.local`, since the code no longer reads them): `DATABASE_URL`, `AUTH_SECRET`, `NEXTAUTH_URL`, `R2_*`, `CRON_SECRET`. Remove them. A Postgres server was previously reachable on a public IP per the earlier audit; confirm it is shut down or firewalled.
+- **Local `.env.local`** holds live HubSpot, Bird, R2 and Redis credentials. It is correctly gitignored and was never committed (history scan clean), but rotate anything that has appeared in transcripts or tool config.
 
-## 4. Things checked and found clean
-No `eval`/dynamic code/shell exec; no `dangerouslySetInnerHTML` except trusted JSON-LD; no iframes; no `window.location` redirects; no hidden routes (all non-public API routes are behind middleware + per-route `auth()`/membership checks; public ones are `/api/contact` and `/api/marketing/*` GETs of published content); `.env*` is gitignored and absent from git history; no secrets in tracked files or history (searched for Bird/AWS/Stripe patterns and DB URLs); contact form escapes HTML and strips CR/LF from subject; cookies are NextAuth defaults (HttpOnly, Secure, SameSite=Lax); source maps not served; `robots.txt` disallows `/portal/` and `/api/`; no postinstall scripts in `package.json`; production bundle contains no outbound domains other than library doc URLs in strings.
+## 4. Checked and found clean
+- No `eval`, `new Function`, `child_process`, `document.write`, `atob/btoa`, `fromCharCode`, iframes, or `window.location` redirects anywhere in `src/`.
+- No secrets in tracked files or full git history (scanned for AWS/HubSpot/Stripe/PEM/DB-URL/bearer patterns; the only hit is a `postgres:postgres@localhost` example in an old plan doc).
+- Contact route: Zod validation with length limits, same-origin check with safe URL parsing, HTML-escaped email body, CR/LF stripped from subject, 3/hour/IP limit, generic error messages, no stack traces returned.
+- Sitemap lists only `/`. `robots.txt` blocks only `/api/`. No hidden or test routes; `/api/projects`, `/api/auth/*`, `/.env`, `/.git/config` all 404.
+- Redirects: only `http→https` (Vercel) and the old `/login`, `/verify-request`, `/error`, `/portal/*` URLs to `/` (single hop, same origin, permanent). No open redirects, no cross-domain hops.
+- Headers on every route: HSTS (1 year, includeSubDomains), `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, Permissions-Policy. No cookies are set at all.
+- Source maps are not served in production (403). `X-Powered-By` is the only fingerprinting header (cosmetic).
 
-## 5. Fixes applied (files changed)
-1. `next.config.ts` — global security headers incl. Permissions-Policy.
-2. `src/app/sitemap.ts`, `src/app/(auth)/layout.tsx`, `src/app/(auth)/login/page.tsx` — login out of sitemap, `noindex`, copy corrected.
-3. `src/app/api/cron/digest/route.ts` — GET support, fail-closed secret, fallback URL.
-4. `src/middleware.ts` — Origin parse hardening, magic-link rate limit.
-5. `package.json` / `package-lock.json` — `next`/`eslint-config-next` 16.3.8, `npm audit fix` (next-auth beta.32, @auth/core 0.41.3, drizzle adapter 1.11.3, etc.).
+## 5. Fixes applied this pass
 
-Verification: `tsc --noEmit` passes; `next build` passes; local production server: `/`, `/login`, `/verify-request`, `/robots.txt`, `/sitemap.xml` → 200; `/portal` → 307 to `/login` (single redirect, same origin); `/api/projects` → 401 unauthenticated; headers present on `/`; sitemap has no `/login`; cron rejects missing and `Bearer undefined` credentials; malformed Origin → 403. `npm audit --omit=dev`: 4 critical → 0 (the 31 total included dev-tool issues; 11 high remain, see M5). **Not verified:** the full magic-link login (no DB/email in this environment) and the rate limiter under load. Test a real sign-in after deploy. There is no automated test suite in the repo.
+| Area | Change | Why | Risk |
+|---|---|---|---|
+| Canonical (M2) | `src/app/layout.tsx`: `metadataBase: new URL("https://elphatechsolutions.com")`. `src/app/(marketing)/layout.tsx`: `alternates: { canonical: '/' }`. | Addresses Search Console "Duplicate without user-selected canonical" and gives crawlers one authoritative origin. | Metadata only. |
+| `www` → apex (M2) | `next.config.ts`: host-matched 308 from `www.elphatechsolutions.com/:path*` to `https://elphatechsolutions.com/:path*`, ahead of the old-portal redirects. | Removes the duplicate origin. Matches only the `www` host, so previews and apex are untouched. | Low. Both hosts previously returned 200, so there is no loop. If you later configure the apex to redirect to `www` in Vercel, you would create a loop; do not. |
 
-## 6. Reputation false-positive risks
-- Email-only login page on a recently registered domain, with copy like "Sign in", "magic link", and a client-portal brand panel — matches credential-harvest templates. (Mitigated: no longer in sitemap, `noindex`.)
-- Magic-link URLs of the form `/api/auth/callback/email?callbackUrl=…&token=…&email=…` — a long query string containing an email and a callback URL is a known heuristic trigger (already hit once per git history). Keep the callback URL same-origin and short; avoid including `email=` where possible.
-- Magic-link emails with a prominent button, if they fail SPF/DKIM alignment (H5). Click tracking is already disabled on magic-link and invite emails (`src/lib/bird.ts`), so links are not rewritten. Other Bird emails may still be tracked.
-- Mail sent to clients when someone logs in ("client login alert") adds more auth-themed volume.
-- Marketing site and login page share one domain; consider serving the portal from `portal.elphatechsolutions.com` so a login-page flag doesn't take down the marketing site.
-- `www` and apex both serve content; Vercel's new IPs (216.198.79.x / 64.29.17.x) are shared infrastructure — neighbours' bad reputation can bleed in, rarely.
+Not changed: CSP, rate-limiter behaviour, dependency versions, DNS (all outside "clearly safe" or outside the repo).
+
+Verification (local production build, `next start`):
+- `tsc --noEmit`: pass. `npm run lint`: pass, no warnings. `npm run build`: pass (routes: `/`, `/api/contact`, `robots.txt`, `sitemap.xml`, icons).
+- `/`, `/robots.txt`, `/sitemap.xml` → 200. `/login`, `/portal/x` → single 308 to `/`. `/api/projects`, `/api/auth/providers` → 404.
+- `Host: www…` → 308 to `https://elphatechsolutions.com/` (path preserved). Canonical tag present: `https://elphatechsolutions.com`.
+- All five security headers present. Page references only `elphatechsolutions.com`, `schema.org`, `wa.me`, `credly.com` (plus the `w3.org` SVG namespace string).
+- `/api/contact`: no Origin → 403; cross-origin → 403; same-origin invalid body → 400 with validation messages.
+- Authentication: there is none to verify (removed). Not verified: a real contact-form submission end to end (needs live HubSpot/Bird credentials). Submit one on the deployed site after release and confirm the HubSpot deal and email arrive.
+- No automated test suite exists in the repo.
+
+## 6. Reputation false-positive risks and your Search Console screenshot
+
+**What the screenshot shows (all benign):**
+- *Page with redirect (2):* the old `/login` and `/portal/*` URLs now 308 to `/`. Expected; they drop out as Google recrawls.
+- *Duplicate without user-selected canonical (1):* the `www`/apex duplicate. Fixed by this pass once deployed.
+- *Blocked by robots.txt (1):* an `/api/…` URL (or a legacy `/portal/` URL from the earlier robots rules). Expected.
+- *Crawled, currently not indexed (1):* a quality/age signal for a new site, not a security issue.
+None of these is a security-issue report. If Search Console's **Security issues** page were flagging the site, it would say so there; check it explicitly.
+
+**Why the domain was likely flagged:**
+1. Domain age about 3.5 months, with very little reputation history.
+2. Until the removal, an email-only login page ("Sign in", "magic link", client-portal branding) that was also in the sitemap. This matches credential-harvest page templates.
+3. Magic-link URLs shaped like `/api/auth/callback/email?callbackUrl=…&token=…&email=…` (long query string containing an email address and a callback URL). The git history (`a1ec016`) shows Chrome's phishing heuristic already fired on this.
+4. Automated auth-themed email (login links, "client login alert") from a domain with weak SPF/DMARC.
+5. A contact form that collects name, email and message is normal, but combined with the above it adds to the profile.
+6. Shared Vercel IP space (64.29.17.x / 216.198.79.x): neighbours' reputation can occasionally bleed in. Rare.
+
+Do not reintroduce a public login on this domain. If a client portal returns, host it on a separate subdomain, keep it out of the sitemap, mark it `noindex`, and keep link URLs short without `email=` parameters.
 
 ## 7. Recommended next steps
+
 **P0 (today)**
-1. Rotate the Bird access token; remove it from `.claude/settings.json`; check Bird logs for unexpected sends.
-2. Deploy these changes; confirm `CRON_SECRET`, `NEXTAUTH_URL`, `AUTH_SECRET`, `UPSTASH_REDIS_REST_*` in Vercel prod.
-3. Find out *who* flags you: check https://transparencyreport.google.com/safe-browsing/search?url=elphatechsolutions.com, Google Search Console → Security issues, `https://www.virustotal.com/gui/domain/elphatechsolutions.com`, and the exact browser warning text. Request review from each vendor (Search Console "Request review", Microsoft SmartScreen feedback, Netcraft, etc.) — a review is the only way to clear a reputation flag; code changes alone won't.
+1. Rotate the Bird access token; remove it from `../.claude/settings.json`; review Bird send logs.
+2. Deploy this change set.
+3. Identify who is flagging you and request review from each: Google Safe Browsing status (`transparencyreport.google.com/safe-browsing/search?url=elphatechsolutions.com`) and Search Console → Security issues → Request review; Microsoft SmartScreen feedback/Defender submission; VirusTotal domain page (note which engines flag it); Netcraft and Cisco Talos reputation lookup; any corporate-firewall category (e.g. Palo Alto, Fortinet) via their site-review forms. Record the exact warning text and vendor for each block.
 
 **P1 (this week)**
-4. Fix SPF/DKIM for Bird; set DMARC to `p=quarantine` with a monitored `rua`.
-5. (Already done in code: click tracking is off for magic-link/invite mail.) Check the digest email too.
-6. Redirect `www` → apex in Vercel; verify the domain in Google Search Console.
-7. Move `shadcn` to `devDependencies`.
+4. Fix email authentication for Bird (SPF/DKIM aligned), verify with a real test, then DMARC `p=quarantine`.
+5. In Search Console, validate fixes for the four indexing rows after deploy, and submit the sitemap.
+6. Confirm in Vercel production: Upstash/KV vars present; remove stale `DATABASE_URL`, `AUTH_SECRET`, `NEXTAUTH_URL`, `R2_*`, `CRON_SECRET`; shut down or firewall the old public Postgres.
+7. Submit one real contact form on production and confirm HubSpot + email delivery.
+8. Add trust signals: privacy policy page, visible company/contact details, `sameAs` social links in the JSON-LD.
 
 **P2**
-8. CSP in Report-Only, then enforce with nonces.
-9. Add CAA records (`letsencrypt.org`, Vercel's CA), optionally DNSSEC at Cloudflare.
-10. Consider a separate portal subdomain; add a basic privacy policy / contact / address footer (legit-site trust signals).
-11. Fix the 20 lint errors, add tests for auth gating, and add CI running `npm audit`.
-12. Replace the stale `env.ts` with a validation actually imported at startup.
+9. CSP in Report-Only, then enforce with nonces; add CAA records and DNSSEC; escape `<` in JSON-LD.
+10. Make the rate limiter fail closed in production; update the five minor dependency bumps; delete unused `public/*.svg` and compress `logo.png`.
+11. Add CI (`npm audit --omit=dev`, typecheck, lint, build) and a few tests for the contact route guards.
+
+## 8. History (earlier audit, same day)
+The first pass found and fixed: Next.js 16.2.9 critical advisories (→16.3.8), next-auth beta.31 email-normaliser bypass, a cron route that never ran and failed open on an unset secret, unthrottled magic-link requests, `/login` in the sitemap, and missing security headers on the homepage. The client portal, login, admin APIs, database, file storage and cron were then removed entirely, which resolved all of those. Items C3, H5 (now M1), M6 (now fixed), M7 (CAA) were carried forward above.

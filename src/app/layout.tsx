@@ -13,6 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://elphatechsolutions.com"),
   title: {
     default: "ElphaTech Solutions — Software. Cloud. Results.",
     template: "%s | ElphaTech Solutions",
